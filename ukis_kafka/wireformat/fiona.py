@@ -11,7 +11,7 @@ Example:
 .. code-block: python
 
     import fiona
-    from ukis_streaming.fiona import feature_to_wireformat
+    from ukis_kafka.wireformat.fiona import feature_to_wireformat
 
     with fiona.open('example.shp', 'r') as src:
         for feature in src:
@@ -29,7 +29,7 @@ Example:
 .. code-block: python
 
     import fiona
-    from ukis_streaming.fiona import wireformat_to_feature
+    from ukis_kafka.wireformat.fiona import wireformat_to_feature
 
     # read s serialized feature from disk
     with open('searialized-feature.bin', 'r') as fh:
@@ -37,33 +37,32 @@ Example:
         # ... do something with the fiona feature
 '''
 
-from . import pack
+
+from .basic import basic_to_wireformat, basic_from_wireformat
 
 from shapely.geometry import shape, mapping
 from shapely import wkb
 
-def feature_to_wireformat(f):
-    rep = {
-        'properties': f.get('properties', {}),
+def feature_to_wireformat(f, **kw):
+    return basic_to_wireformat(
+            wkb.dumps(shape(f['geometry'])), # geometry as WKB
+            f.get('properties', {}),
+            **kw
+    )
 
-        # geometry as WKB
-        'wkb': wkb.dumps(shape(f['geometry']))
-    }
-    return pack.pack(rep)
-    
-
-def wireformat_to_shapely(data):
+def wireformat_to_shapely(wiredata):
     '''convert the wireformat represenation to shapely.
-       returns a shapely geometry and a dictionary with the properties'''
-    rep = pack.unpack(data)
-    if not type(rep) == dict:
-        raise ValueError('expected a dict in the binary data')
-    return wkb.loads(rep['wkb']), rep.get('properties', {})
+       returns a shapely geometry and a dictionary with the properties and a meta dict'''
+    rep = basic_from_wireformat(data)
+    shape = None
+    if rep['wkb']:
+        shape = wkb.loads(rep['wkb'])
+    return shape, rep['properties']
 
 
-def wireformat_to_fiona(data):
-    geom, props = wireformat_to_shapely(data)
+def wireformat_to_fiona(wiredata):
+    shape, props = wireformat_to_shapely(wiredata)
     return {
         'properties': props,
-        'geometry': mapping(geom)
+        'geometry': mapping(shape)
     }

@@ -22,17 +22,19 @@ def find_version(*file_paths):
 
 
 setup(
-        name='ukis_streaming',
-        version=find_version('ukis_streaming', "__init__.py"),
-        description='This package implements a compact binary wireformat to stream vector features over messaging networks.',
-        description_long=read('README.md'),
+        name='ukis_kafka',
+        version=find_version('ukis_kafka', "__init__.py"),
+        description='This package implements a compact binary wireformat to stream vector features using apache kafka.',
+        description_long=read('README'),
         author='Nico Mandery',
         author_email='nico.mandery@dlr.de',
         install_requires=[
             'Fiona>=1.7',
             'Shapely>=1.5',
-            'msgpack-python>=0.4'
+            'msgpack-python>=0.4',
+            'psycopg2>=2.6',
+            'kafka-python>=1.3'
         ],
-        packages=find_packages(exclude=['tests', 'tests.*']),
-        url='http://git.ukis.eoc.dlr.de/projects/BACKEND/repos/ukis_streaming'
+        packages=find_packages(exclude=['tests', 'tests.*', 'examples']),
+        url='http://git.ukis.eoc.dlr.de/projects/BACKEND/repos/ukis_kafka'
 )
