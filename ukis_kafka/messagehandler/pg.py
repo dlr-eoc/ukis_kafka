@@ -38,6 +38,17 @@ class PgBaseMessageHandler(BaseMessageHandler):
             self._ident_quoted_cache[s] = cur.fetchone()[0]
         return self._ident_quoted_cache[s]
 
+    def postgresql_version(self, cur):
+        cur.execute('select version()')
+        return cur.fetchone()[0]
+
+    def postgis_version(self, cur):
+        cur.execute('''select exists(select routine_name from information_schema.routines where routine_name like 'postgis_version')''')
+        if not cur.fetchone()[0]:
+            raise RuntimeError("the database server does not have postgis installed")
+        cur.execute('select postgis_version()')
+        return cur.fetchone()[0]
+
 
 
 class PostgisInsertMessageHandler(PgBaseMessageHandler):
@@ -62,6 +73,11 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         """analyze the postgresql schema for the colums of the target table"""
         self._columns = {}
         self._geometry_column = None
+        logger.info('Database server uses postgresql version "{0}" with postgis version "{1}"'.format(
+                    self.postgresql_version(cur),
+                    self.postgis_version(cur),
+            ))
+        logger.info('Analyzing schema of relation {0}.{1}'.format(self.schema_name, self.table_name))
         cur.execute('''select column_name, udt_name as datatype from information_schema.columns 
                             where table_name = %s
                                 and table_schema = %s

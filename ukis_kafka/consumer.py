@@ -56,18 +56,25 @@ class PostgresqlConsumer(BaseConsumer):
         while True:
             messages = self.poll(timeout_ms=20*1000)
             if messages:
+                count_handled = 0
+                count_dropped = 0
                 for topicpartition, msglist in messages.items():
                     handler = self.topic_handlers[topicpartition.topic]
                     for msg in msglist:
                         data = msg.value
-                        logger.info('handling message on topic={0}'.format(topicpartition.topic))
+                        logger.debug('Handling message on topic={0}'.format(topicpartition.topic))
+                        count_handled += 1
                         try:
                             cur.execute("savepoint current_msg")
                             handler.handle_message(cur, data)
                             cur.execute("release savepoint current_msg")
                         except Exception, e:
                             cur.execute("rollback to savepoint current_msg")
-                            logger.error("message dropped because of failure to insert: {0}, properties: {1}".format(e, data['properties']))
+                            count_dropped += 1
+                            logger.error("Message dropped because of failure to insert: {0}, properties: {1}".format(e, data['properties']))
+
+                logger.info('Handled {0} message(s), of which {1} have been dropped because of errors'.format(
+                                    count_handled, count_dropped))
 
                 self.conn.commit()
                 self.commit()
