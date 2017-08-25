@@ -22,8 +22,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../'))
 
 
-from ukis_kafka.consumer import ToPostgisConsumer
-from ukis_kafka.pg import MessageHandler
+from ukis_kafka.consumer import PostgresqlConsumer
+from ukis_kafka.messagehandler.pg import PostgisInsertMessageHandler
 
 
 # verbose logging
@@ -40,7 +40,7 @@ cur = conn.cursor()
 cur.execute('truncate sdkarma_live;')
 conn.commit()
 
-consumer = ToPostgisConsumer(conn,
+consumer = PostgresqlConsumer(conn,
         bootstrap_servers='localhost:9092',
         session_timeout_ms=10000,
         enable_auto_commit=False,
@@ -48,6 +48,6 @@ consumer = ToPostgisConsumer(conn,
         group_id=os.path.basename(__file__)
     )
 
-consumer.register_topic_handler('sdkarma-live-wf', MessageHandler('public', 'sdkarma_live'))
+consumer.register_topic_handler('sdkarma-live-wf', PostgisInsertMessageHandler('public', 'sdkarma_live'))
 
 consumer.consume()

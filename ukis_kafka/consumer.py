@@ -2,21 +2,32 @@
 
 from kafka import KafkaConsumer
 
-from wireformat.basic import basic_from_wireformat
+from wireformat import basic_from_wireformat
 from .wireformat import pack
-
-from . import pg
 
 import logging
 
 logger = logging.getLogger(__name__)
 
+class BaseConsumer(KafkaConsumer):
+    '''base class for all consumers in the package'''
 
-class ToPostgisConsumer(KafkaConsumer):
-    '''consume arriving messages in to a postigs database'''
+    topic_handlers = {}
+
+    def register_topic_handler(self, topic, handler):
+        self.topic_handlers[topic] = handler
+        self.subscribe(self.topic_handlers.keys())
+
+    def consume(self):
+        raise NotImplementedError('needs to implemented in subclasses')
+
+
+class PostgresqlConsumer(BaseConsumer):
+    '''consume arriving messages into a postgresql database.
+       
+       provides transaction management between kafka and postgresql'''
 
     conn = None # psycopg2 connection
-    topic_handlers = {}
 
     def __init__(self, conn, *topics, **config):
         '''
@@ -34,9 +45,6 @@ class ToPostgisConsumer(KafkaConsumer):
         super(self.__class__, self).__init__(*topics, **config)
         self.conn = conn
 
-    def register_topic_handler(self, topic, handler):
-        self.topic_handlers[topic] = handler
-        self.subscribe(self.topic_handlers.keys())
 
     def consume(self):
         cur = self.conn.cursor()
@@ -59,10 +67,7 @@ class ToPostgisConsumer(KafkaConsumer):
                             cur.execute("release savepoint current_msg")
                         except Exception, e:
                             cur.execute("rollback to savepoint current_msg")
-                            logger.error("message dropped because of failure to insert: {0}: {1}".format(e, props))
+                            logger.error("message dropped because of failure to insert: {0}, properties: {1}".format(e, data['properties']))
 
                 self.conn.commit()
                 self.commit()
-
-
-

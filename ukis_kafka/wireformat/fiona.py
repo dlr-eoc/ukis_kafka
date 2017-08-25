@@ -53,7 +53,7 @@ def feature_to_wireformat(f, **kw):
 def wireformat_to_shapely(wiredata):
     '''convert the wireformat represenation to shapely.
        returns a shapely geometry and a dictionary with the properties and a meta dict'''
-    rep = basic_from_wireformat(data)
+    rep = basic_from_wireformat(wiredata)
     shape = None
     if rep['wkb']:
         shape = wkb.loads(rep['wkb'])

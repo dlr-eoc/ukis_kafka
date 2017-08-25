@@ -2,8 +2,10 @@
 
 from psycopg2 import Binary
 
-import datetime
+#import datetime
 import logging
+
+from .base import BaseMessageHandler
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,31 @@ logger = logging.getLogger(__name__)
 #}
 
 
-class MessageHandler(object):
+class PgBaseMessageHandler(BaseMessageHandler):
+    '''common functionality for postgresql-targeting message handlers
+       
+       This class provides no handling bit itself'''
+
+    _ident_quoted_cache = {}
+
+    def quote_ident(self, s, cur):
+        '''quote/escape an sql identifier.
+           caches the results.'''
+        try:
+            return self._ident_quoted_cache[s]
+        except KeyError:
+            cur.execute('select quote_ident(%s)', (s,))
+            self._ident_quoted_cache[s] = cur.fetchone()[0]
+        return self._ident_quoted_cache[s]
+
+
+
+class PostgisInsertMessageHandler(PgBaseMessageHandler):
+    '''insert incomming messages in an database table.
+
+    performs some schema introspection to find common attributes between
+    the incomming data and the target tables columns + adds typecasts.
+    '''
 
     table_name = None
     schema_name = None
@@ -27,8 +53,6 @@ class MessageHandler(object):
     # database schema
     _columns = {}
     _geometry_column = None
-
-    _ident_quoted_cache = {}
 
     def __init__(self, schema_name, table_name):
         self.schema_name = schema_name or 'public'
@@ -58,20 +82,6 @@ class MessageHandler(object):
         if sanitized_name in self._columns:
            return sanitized_name
         return None
-
-    def quote_ident(self, s, cur):
-        '''quote/escape an sql identifier.
-           caches the results.'''
-        try:
-            return self._ident_quoted_cache[s]
-        except KeyError:
-            cur.execute('select quote_ident(%s)', (s,))
-            self._ident_quoted_cache[s] = cur.fetchone()[0]
-        return self._ident_quoted_cache[s]
-
-    def sanitize_value(self, db_column_name, value):
-        '''override this method in subclasses to correct/fix/... incomming values'''
-        return value
 
     def handle_message(self, cur, data):
 
