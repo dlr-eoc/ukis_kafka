@@ -5,6 +5,8 @@ from kafka import KafkaConsumer
 from wireformat import basic_from_wireformat
 from .wireformat import pack
 
+from psycopg2.extensions import TRANSACTION_STATUS_UNKNOWN
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,8 @@ class PostgresqlConsumer(BaseConsumer):
         super(self.__class__, self).__init__(*topics, **config)
         self.conn = conn
 
+    def is_connection_alive(self):
+        return self.conn.get_transaction_status() != TRANSACTION_STATUS_UNKNOWN
 
     def consume(self):
         cur = self.conn.cursor()
@@ -55,6 +59,10 @@ class PostgresqlConsumer(BaseConsumer):
 
         while True:
             messages = self.poll(timeout_ms=20*1000)
+
+            if not self.is_connection_alive():
+                raise IOError('The connection with the database server is broken')
+
             if messages:
                 count_handled = 0
                 count_dropped = 0
