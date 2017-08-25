@@ -1,6 +1,7 @@
 # encoding: utf8
 
 from psycopg2 import Binary
+from dateutil.parser import parse as date_parse
 
 #import datetime
 import logging
@@ -19,6 +20,21 @@ logger = logging.getLogger(__name__)
 #    datetime.date: "date",
 #    datetime.time: "time"
 #}
+
+
+def pg_sanitize_value(value, pg_datatype):
+    '''attempt to sanitze the value to be better suitable to
+       cast to the desired datatype in postgres.
+       
+       in case of failures to parse the value it gets returned as it is'''
+    if value is not None:
+        if pg_datatype in ('date', 'timestamptz', 'timestamp'):
+            try:
+                return date_parse(value).isoformat()
+            except:
+                pass # let postgresql try its best at parsing :(
+
+    return value
 
 
 class PgBaseMessageHandler(BaseMessageHandler):
@@ -99,13 +115,17 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
            return sanitized_name
         return None
 
+    def sanitize_value(self, name, value):
+        datatype = self._columns[name]['datatype']
+        return pg_sanitize_value(value, datatype)
+
     def handle_message(self, cur, data):
 
         # prepare the values for insertion into the db
         target_columns = []
         values = []
         placeholders = []
-        for prop_name, prop_value in data['properties'].items():
+        for prop_name, prop_value in data['properties'].items(): # TODO: add meta
             col_name = self.column_for_property(prop_name)
             if col_name:
                 target_columns.append(col_name)

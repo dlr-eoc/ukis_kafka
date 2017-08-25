@@ -6,7 +6,7 @@ The expected DDL for the table is
 
 CREATE TABLE public.sdkarma_live (
     id text,
-    datetime text,
+    datetime timestamp,
     geom geometry
 );
 

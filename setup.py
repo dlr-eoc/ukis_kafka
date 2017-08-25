@@ -33,7 +33,8 @@ setup(
             'Shapely>=1.5',
             'msgpack-python>=0.4',
             'psycopg2>=2.6',
-            'kafka-python>=1.3'
+            'kafka-python>=1.3',
+            'python-dateutil>=2.4'
         ],
         packages=find_packages(exclude=['tests', 'tests.*', 'examples']),
         url='http://git.ukis.eoc.dlr.de/projects/BACKEND/repos/ukis_kafka'
