@@ -16,13 +16,16 @@ logger = logging.getLogger(__name__)
 @click.option('--version', is_flag=True, callback=commons.print_version,
               expose_value=False, is_eager=True)
 @click.option('--kafka_server', '-k', required=True, default='localhost:9092',
-            help='Hostname and port of the kafka server to connect to')
+            help='Hostname and port of the kafka server to connect to.')
 @click.option('--topic', '-t', required=True,
-            help='topic under which the vectors are published')
+            help='Topic under which the vectors are published.')
 @click.option('--loglevel', '-l', type=click.Choice(commons.loglevel_names()), default='info',
-            help='Loglevel')
+            help='Loglevel. logs will be written to stdout.')
 @click.argument('filename', type=click.Path(exists=True))
 def main(filename, kafka_server, topic, loglevel):
+    '''
+    Read vector geodata from a file and push it into Kafka.
+    '''
     commons.init_logging(loglevel)
 
     producer = KafkaProducer(

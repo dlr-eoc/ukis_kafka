@@ -41,8 +41,7 @@ setup(
         entry_points={
             'console_scripts': [
                 #'ukis_postgis_consumer=ukis_kafka.commands.postgis_consumer:main'
-                'ukis_stream_vectorlayer=ukis_kafka.commands.stream_vectorlayer:main'
-                # TODO: producer via fiona as a simple command, "ukis_stream_vectorlayer"
+                'ukis_vectorlayer_producer=ukis_kafka.commands.vectorlayer_producer:main'
             ]
             },
         url='http://git.ukis.eoc.dlr.de/projects/BACKEND/repos/ukis_kafka'
