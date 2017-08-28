@@ -84,6 +84,8 @@ def main(cfg_file):
 
     # establish a db connection
     conn = psycopg2.connect(config.get(('postgresql', 'dsn')))
+    conn.cursor().execute('set application_name = %s', (click.get_current_context().info_name or '',))
+    conn.commit()
 
     # connect to kafka
     consumer = PostgresqlConsumer(conn,
