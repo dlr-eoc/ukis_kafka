@@ -28,6 +28,15 @@ There is some support in the `ukis_streaming.fiona` module.
 Support for the native OGR library bindings still needs to be implemented.
 
 
+## Shell commands
+
+This package provides several shell commands. Each of these has its own help, which can be invoked by `[command] --help`.
+
+Available after installation are:
+
+* ukis_stream_vectorlayer
+    
+
 
 # TODO
 
