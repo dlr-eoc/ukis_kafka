@@ -66,4 +66,4 @@ def main(filename, kafka_server, topic, loglevel, meta_field):
             if f_counter % 100 != 0:
                 print("Send {0} features".format(f_counter))
     finally:
-        producer.flush()
+        producer.close(10)
