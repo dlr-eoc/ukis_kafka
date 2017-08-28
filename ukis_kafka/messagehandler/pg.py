@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 #}
 
 
-def pg_sanitize_value(value, pg_datatype):
+def pg_sanitize_value(value, pg_datatype, max_length):
     '''attempt to sanitze the value to be better suitable to
        cast to the desired datatype in postgres.
        
@@ -33,7 +33,11 @@ def pg_sanitize_value(value, pg_datatype):
                 return date_parse(value).isoformat()
             except:
                 pass # let postgresql try its best at parsing :(
-
+        if pg_datatype in ('char', 'text', 'varchar'):
+            value = str(value)
+            # truncate texts when there is an charater limit in the db
+            if max_length is not None:
+                return value[:max_length]
     return value
 
 
@@ -95,18 +99,23 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
                     self.postgis_version(cur),
             ))
         logger.info('Analyzing schema of relation {0}.{1}'.format(self.schema_name, self.table_name))
-        cur.execute('''select column_name, udt_name as datatype from information_schema.columns 
+        cur.execute('''select column_name, udt_name as datatype, 
+                                character_maximum_length as max_length
+                            from information_schema.columns 
                             where table_name = %s
                                 and table_schema = %s
                                 and ordinal_position > 0''',
                             (self.table_name, self.schema_name))
-        for column_name, datatype in cur.fetchall():
+        for column_name, datatype, max_length in cur.fetchall():
             if datatype == 'geometry':
                 if self._geometry_column is not None:
                     raise RuntimeError('unable to deal with more than one geometry column') # needs to be improved in the future
                 self._geometry_column = column_name
             else:
-                self._columns[column_name] = {'datatype': datatype}
+                self._columns[column_name] = {
+                    'datatype': datatype,
+                    'max_length': max_length
+                }
 
     def column_for_property(self, property_name):
         '''returns the name of the column where a property of a message should be stored.
@@ -117,8 +126,10 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         return None
 
     def sanitize_value(self, name, value):
-        datatype = self._columns[name]['datatype']
-        return pg_sanitize_value(value, datatype)
+        return pg_sanitize_value(value,
+                    self._columns[name]['datatype'],
+                    self._columns[name]['max_length']
+        )
 
     def handle_message(self, cur, data):
 
