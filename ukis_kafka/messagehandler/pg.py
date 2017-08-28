@@ -1,6 +1,7 @@
 # encoding: utf8
 
 from psycopg2 import Binary
+from psycopg2.extras import Json
 from dateutil.parser import parse as date_parse
 
 #import datetime
@@ -9,17 +10,6 @@ import logging
 from .base import BaseMessageHandler
 
 logger = logging.getLogger(__name__)
-
-# typemap to map python types to postgresql types
-# TODO: cast functions ??
-#TypeMap = {
-#    int: "integer",
-#    float: "double precision",
-#    str: "text",
-#    datetime.datetime: "timestamp"
-#    datetime.date: "date",
-#    datetime.time: "time"
-#}
 
 
 def pg_sanitize_value(value, pg_datatype, max_length):
@@ -34,12 +24,15 @@ def pg_sanitize_value(value, pg_datatype, max_length):
             except:
                 pass # let postgresql try its best at parsing :(
         elif pg_datatype in ('char', 'text', 'varchar'):
-            value = str(value)
-            # truncate texts when there is an charater limit in the db
+            # truncate texts when there is an charater limit in the db. Cast to string
+            # to make in work for values send as int/float/...
             if max_length is not None:
-                return value[:max_length]
+                return str(value)[:max_length]
         elif pg_datatype == 'bytea':
             return Binary(value)
+        elif pg_datatype == 'json':
+            # serialize to json to use value with postgresql json type
+            return Json(value)
     return value
 
 
