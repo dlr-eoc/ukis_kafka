@@ -34,7 +34,8 @@ This package provides several shell commands. Each of these has its own help, wh
 
 Available after installation are:
 
-* ukis_stream_vectorlayer
+* ukis_vectorlayer_producer
+* ukis_postgis_consumer
     
 
 

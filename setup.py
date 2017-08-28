@@ -35,12 +35,13 @@ setup(
             'psycopg2>=2.6',
             'kafka-python>=1.3',
             'python-dateutil>=2.4',
-            'click>=6.7'
+            'click>=6.7',
+			'PyYAML==3.11'
         ],
         packages=find_packages(exclude=['tests', 'tests.*', 'examples']),
         entry_points={
             'console_scripts': [
-                #'ukis_postgis_consumer=ukis_kafka.commands.postgis_consumer:main'
+                'ukis_postgis_consumer=ukis_kafka.commands.postgis_consumer:main',
                 'ukis_vectorlayer_producer=ukis_kafka.commands.vectorlayer_producer:main'
             ]
             },

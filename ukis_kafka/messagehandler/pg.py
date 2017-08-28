@@ -72,6 +72,7 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
 
     performs some schema introspection to find common attributes between
     the incomming data and the target tables columns + adds typecasts.
+    Timestamps are analyzed and brought into ISO-format when possible.
     '''
 
     table_name = None
@@ -89,7 +90,7 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         """analyze the postgresql schema for the colums of the target table"""
         self._columns = {}
         self._geometry_column = None
-        logger.info('Database server uses postgresql version "{0}" with postgis version "{1}"'.format(
+        logger.info('Database server uses PostgreSQL version "{0}" with PostGIS version "{1}"'.format(
                     self.postgresql_version(cur),
                     self.postgis_version(cur),
             ))
