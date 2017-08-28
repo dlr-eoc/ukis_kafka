@@ -11,10 +11,10 @@ import yaml
 _loglevels = {
     'error': logging.ERROR,
     'warning': logging.WARNING,
+    'warn': logging.WARNING,
     'info': logging.INFO,
     'debug': logging.DEBUG,
 }
-
 
 def print_version(ctx, param, value):
     if not value or ctx.resilient_parsing:
@@ -26,6 +26,7 @@ def loglevel_names():
     return _loglevels.keys()
 
 def init_logging(levelname, logfile=None):
+    '''initialize the logging module'''
     level = _loglevels[levelname]
     root = logging.getLogger()
     root.setLevel(level)
@@ -46,6 +47,9 @@ class ConfigurationError(Exception):
     pass
 
 class Configuration(object):
+    '''simple abstraction for configuration structures including a somewhat understandable
+        reporting of errors to the user'''
+
     cfg = {}
 
     def __init__(self, cfg):

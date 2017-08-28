@@ -85,7 +85,7 @@ def main(cfg_file):
 
     for topic_name in config.get(('topics',)).keys():
         handler_name = config.get(('topics', topic_name, 'handler'), default='postgisinsert')
-        hanlder = None
+        handler = None
         if handler_name == 'postgisinsert':
             handler = PostgisInsertMessageHandler(
                 config.get(('topics', topic_name, 'schema_name'), required=False),
