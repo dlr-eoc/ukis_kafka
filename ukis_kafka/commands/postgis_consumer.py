@@ -48,7 +48,8 @@ def read_configuration(cfg_file):
 
 @click.command()
 @click.option('--version', is_flag=True, callback=commons.print_version,
-              expose_value=False, is_eager=True)
+              expose_value=False, is_eager=True,
+              help='Print version and exit.')
 @click.option('--example_configuration', is_flag=True, callback=print_example_config,
               expose_value=False, is_eager=True,
               help='Print an example configuration file and exit.')

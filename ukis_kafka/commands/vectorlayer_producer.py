@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 @click.command()
 @click.option('--version', is_flag=True, callback=commons.print_version,
-              expose_value=False, is_eager=True)
+              expose_value=False, is_eager=True,
+              help='Print version and exit.')
 @click.option('--kafka_server', '-k', required=True, default='localhost:9092',
             help='Hostname and port of the kafka server to connect to.')
 @click.option('--topic', '-t', required=True,
