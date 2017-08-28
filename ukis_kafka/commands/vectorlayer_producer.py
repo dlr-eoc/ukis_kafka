@@ -9,6 +9,7 @@ import click
 import fiona
 
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,10 @@ def main(filename, kafka_server, topic, loglevel, meta_field):
     commons.init_logging(loglevel)
 
     # collect meta information to attach to the features
-    meta = {}
+    meta = {
+        # unique identifier for this invocation/batch
+        'batch': uuid.uuid4().hex
+    }
     for mf in meta_field:
         spos = mf.index('=')
         if spos < 1:
