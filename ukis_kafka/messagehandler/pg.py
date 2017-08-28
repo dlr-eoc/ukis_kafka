@@ -5,7 +5,6 @@ from psycopg2.extras import Json
 from dateutil.parser import parse as date_parse
 
 import logging
-import collections
 
 from .base import BaseMessageHandler
 
