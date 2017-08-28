@@ -22,19 +22,34 @@ logger = logging.getLogger(__name__)
             help='Topic under which the vectors are published.')
 @click.option('--loglevel', '-l', type=click.Choice(commons.loglevel_names()), default='info',
             help='Loglevel. logs will be written to stdout.')
+@click.option('--meta_field', '-m', multiple=True,
+            help='Add a field with metainformation to the data. This option can be used multiple times. Syntax: KEY=VALUE')
 @click.argument('filename', type=click.Path(exists=True))
-def main(filename, kafka_server, topic, loglevel):
+def main(filename, kafka_server, topic, loglevel, meta_field):
     '''
     Read vector geodata from a file and push it into Kafka.
     '''
     commons.init_logging(loglevel)
 
+    # collect meta information to attach to the features
+    meta = {}
+    for mf in meta_field:
+        spos = mf.index('=')
+        if spos < 1:
+            raise RuntimeError("Meta field can not be parsed: {0}".format(mf))
+        meta[mf[:spos]] = mf[spos+1:]
+
+    def value_serializer(*a, **kw):
+        '''custom serializer to attach meta infos'''
+        kw['meta'] = meta
+        return feature_to_wireformat(*a, **kw)
+
     producer = KafkaProducer(
             bootstrap_servers=kafka_server,
             key_serializer=pack.pack,
-            value_serializer=feature_to_wireformat,
+            value_serializer=value_serializer,
             compression_type='gzip'
-        )
+    )
 
     try:
         f_counter = 0
