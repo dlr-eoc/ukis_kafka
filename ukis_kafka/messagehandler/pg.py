@@ -4,8 +4,8 @@ from psycopg2 import Binary
 from psycopg2.extras import Json
 from dateutil.parser import parse as date_parse
 
-#import datetime
 import logging
+import collections
 
 from .base import BaseMessageHandler
 
@@ -65,7 +65,6 @@ class PgBaseMessageHandler(BaseMessageHandler):
         return cur.fetchone()[0]
 
 
-
 class PostgisInsertMessageHandler(PgBaseMessageHandler):
     '''insert incomming messages in an database table.
 
@@ -81,9 +80,32 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
     _columns = {}
     _geometry_column = None
 
+    # dict which maps the properties/meta fields of the features
+    # to database columns.
+    # when this is None, auto-mapping is used
+    _mapping_properties = None
+    _mapping_metafields = None
+
     def __init__(self, schema_name, table_name):
         self.schema_name = schema_name or 'public'
         self.table_name = table_name
+
+
+    def set_property_mapping(self, mapping):
+        '''map properties of the incomming features to database columns.
+
+        Expects a dict in the Form:
+
+            {
+                'property-name': 'database column name'
+            }
+
+        When not set, properties will be auto-correlated by their names'''
+        self._mapping_properties = mapping
+
+    def set_metafield_mapping(self, mapping):
+        '''map the meta fields of the incomming features to database columns.'''
+        self._mapping_metafields = mapping
 
     def collect_schema(self, cur):
         """analyze the postgresql schema for the colums of the target table"""
@@ -112,12 +134,16 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
                     'max_length': max_length
                 }
 
-    def column_for_property(self, property_name):
+    def _column_for_property(self, property_name):
         '''returns the name of the column where a property of a message should be stored.
            returning None means the property will be ignored.'''
-        sanitized_name = property_name.lower() # TODO: improve
-        if sanitized_name in self._columns:
-           return sanitized_name
+        if self._mapping_properties is not None:
+           return self._mapping_properties.get(property_name)
+        else:
+           # automapping by corellating the names
+            sanitized_name = property_name.lower() # TODO: improve
+            if sanitized_name in self._columns:
+               return sanitized_name
         return None
 
     def sanitize_value(self, name, value):
@@ -132,12 +158,22 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         target_columns = []
         values = []
         placeholders = []
-        for prop_name, prop_value in data['properties'].items(): # TODO: add meta
-            col_name = self.column_for_property(prop_name)
+
+        def append_col(col_name, value):
             if col_name:
                 target_columns.append(col_name)
-                values.append(self.sanitize_value(col_name, prop_value))
+                values.append(self.sanitize_value(col_name, value))
                 placeholders.append('%s::'+self._columns[col_name]['datatype'])
+
+        # handle meta fields first, to give properties a higher priority (possible override)
+        if self._mapping_metafields is not None:
+            for mf_name, col_name in self._mapping_metafields.items():
+                append_col(col_name, data['meta'].get(mf_name))
+
+        for prop_name, prop_value in data['properties'].items():
+            col_name = self._column_for_property(prop_name)
+            append_col(col_name, prop_value)
+
         if self._geometry_column:
             target_columns.append(self._geometry_column)
             values.append(Binary(data['wkb']))

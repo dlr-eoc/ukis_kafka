@@ -28,6 +28,18 @@ def print_example_config(ctx, param, value):
                 'handler': 'postgisinsert',
                 'table_name': 'mytable',
                 'schema_name': 'public'
+            },
+            'topic_b': {
+                'handler': 'postgisinsert',
+                'table_name': 'mytable',
+                'schema_name': 'public',
+                'metafield_map': { # stores meta-field in db columns
+                    'filename': 'id'
+                },
+                'property_map': { # no auto-mapping. manual field to db-column correlation
+                    'area_km2': 'area_km2',
+                    'datetime': 'datetime'
+                }
             }
         }
     })
@@ -91,6 +103,14 @@ def main(cfg_file):
                 config.get(('topics', topic_name, 'schema_name'), required=False),
                 config.get(('topics', topic_name, 'table_name'))
             )
+
+            property_map = config.get(['topics', topic_name, 'property_map'], required=False)
+            if property_map is not None:
+                handler.set_property_mapping(property_map)
+
+            metafield_map = config.get(['topics', topic_name, 'metafield_map'], required=False)
+            if metafield_map is not None:
+                handler.set_metafield_mapping(metafield_map)
         else:
             raise ValueError('unknown handler {0}'.format(handler_name))
         if handler:
