@@ -33,11 +33,13 @@ def pg_sanitize_value(value, pg_datatype, max_length):
                 return date_parse(value).isoformat()
             except:
                 pass # let postgresql try its best at parsing :(
-        if pg_datatype in ('char', 'text', 'varchar'):
+        elif pg_datatype in ('char', 'text', 'varchar'):
             value = str(value)
             # truncate texts when there is an charater limit in the db
             if max_length is not None:
                 return value[:max_length]
+        elif pg_datatype == 'bytea':
+            return Binary(value)
     return value
 
 
