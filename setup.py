@@ -42,6 +42,7 @@ setup(
         entry_points={
             'console_scripts': [
                 'ukis_postgis_consumer=ukis_kafka.commands.postgis_consumer:main',
+                'ukis_dump_consumer=ukis_kafka.commands.dump_consumer:main',
                 'ukis_vectorlayer_producer=ukis_kafka.commands.vectorlayer_producer:main'
             ]
             },

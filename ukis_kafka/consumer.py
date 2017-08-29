@@ -16,12 +16,42 @@ class BaseConsumer(KafkaConsumer):
 
     topic_handlers = {}
 
+    def __init__(self, *topics, **config):
+        if not config.get('max_poll_records', None):
+            config['max_poll_records'] = 100
+        config['value_deserializer'] = basic_from_wireformat
+        config['key_deserializer'] = pack.unpack
+        super(self.__class__, self).__init__(*topics, **config)
+
     def register_topic_handler(self, topic, handler):
         self.topic_handlers[topic] = handler
         self.subscribe(self.topic_handlers.keys())
 
     def consume(self):
-        raise NotImplementedError('needs to implemented in subclasses')
+        '''default implementation. may be overriden in subclasses'''
+        while True:
+            messages = self.poll(timeout_ms=20*1000)
+
+            if messages:
+                count_handled = 0
+                count_dropped = 0
+                for topicpartition, msglist in messages.items():
+                    handler = self.topic_handlers[topicpartition.topic]
+                    for msg in msglist:
+                        data = msg.value
+                        logger.debug('Handling message on topic={0}'.format(topicpartition.topic))
+                        count_handled += 1
+                        try:
+                            handler.handle_message(data)
+                        except Exception, e:
+                            raise
+                            count_dropped += 1
+                            logger.error("Message dropped because of error: {0}".format(e))
+
+                logger.info('Handled {0} message(s), of which {1} have been dropped because of errors'.format(
+                                    count_handled, count_dropped))
+
+                self.commit()
 
 
 class PostgresqlConsumer(BaseConsumer):
@@ -36,11 +66,6 @@ class PostgresqlConsumer(BaseConsumer):
         parameters:
             conn: psycopg2 connection instance
         '''
-        if not config.get('max_poll_records', None):
-            config['max_poll_records'] = 100
-        config['value_deserializer'] = basic_from_wireformat
-        config['key_deserializer'] = pack.unpack
-
         # This class handles synchronizing between kafka and postgresql commits itself
         config['enable_auto_commit'] = False
 
