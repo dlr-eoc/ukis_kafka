@@ -102,7 +102,7 @@ class PostgresqlWriter(QuoteIdentMixin):
 
     def on_conflict(self, action):
         if self.postgres_version < pkg_resources.parse_version('9.5'):
-            raise Execption('conflict handling requires postgresql >= 9.5')
+            raise Exception('conflict handling requires postgresql >= 9.5')
         if action == 'do nothing':
             self.on_conflict = 'do nothing'
         elif action == 'do update':
