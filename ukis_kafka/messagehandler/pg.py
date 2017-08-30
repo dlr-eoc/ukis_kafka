@@ -6,10 +6,14 @@ from dateutil.parser import parse as date_parse
 
 import logging
 import collections
+import pkg_resources
+import re
 
 from .base import BaseMessageHandler
 
 logger = logging.getLogger(__name__)
+
+re_postgresql_version = re.compile('^[a-zA-Z]+\s*([0-9\.]+)')
 
 
 def pg_sanitize_value(value, pg_datatype, max_length):
@@ -20,9 +24,12 @@ def pg_sanitize_value(value, pg_datatype, max_length):
     if value is not None:
         if pg_datatype in ('date', 'timestamptz', 'timestamp'):
             try:
-                return date_parse(value).isoformat()
-            except:
-                pass # let postgresql try its best at parsing :(
+                return value.isoformat()
+            except AttributeError:
+                try:
+                    return date_parse(value).isoformat()
+                except:
+                    pass # let postgresql try its best at parsing :(
         elif pg_datatype in ('char', 'text', 'varchar'):
             # truncate texts when there is an charater limit in the db. Cast to string
             # to make in work for values send as int/float/...
@@ -39,6 +46,10 @@ def postgresql_version(cur):
     cur.execute('select version()')
     return cur.fetchone()[0]
 
+def postgresql_extract_version(version_string):
+    m = re_postgresql_version.search(version_string)
+    return pkg_resources.parse_version(m.group(1))
+
 def postgis_version(cur):
     cur.execute('''select exists(select routine_name from information_schema.routines where routine_name like 'postgis_version')''')
     if not cur.fetchone()[0]:
@@ -49,7 +60,7 @@ def postgis_version(cur):
 
 class QuoteIdentMixin(object):
 
-    _ident_quoted_cache = {}
+    _ident_quoted_cache = {} # possible memory leak, but sufficient for this application
 
     def quote_ident(self, s, cur):
         '''quote/escape an sql identifier.
@@ -61,6 +72,7 @@ class QuoteIdentMixin(object):
             self._ident_quoted_cache[s] = cur.fetchone()[0]
         return self._ident_quoted_cache[s]
 
+
 class PgBaseMessageHandler(BaseMessageHandler, QuoteIdentMixin):
     '''common functionality for postgresql-targeting message handlers
        
@@ -71,6 +83,8 @@ ColumnSchema = collections.namedtuple('ColumnSchema', 'name, datatype, max_lengt
 class PostgresqlWriter(QuoteIdentMixin):
     table_name = None
     schema_name = None
+    postgres_version = None
+    on_conflict = None
 
     _columns = {}
 
@@ -86,13 +100,26 @@ class PostgresqlWriter(QuoteIdentMixin):
             c = {k :v for k,v in c.iteritems() if v.datatype == datatype}
         return c
 
+    def on_conflict(self, action):
+        if self.postgres_version < pkg_resources.parse_version('9.5'):
+            raise Execption('conflict handling requires postgresql >= 9.5')
+        if action == 'do nothing':
+            self.on_conflict = 'do nothing'
+        elif action == 'do update':
+            self.on_conflict = 'do update'
+        else:
+            raise Exception('unsupported on_conflict action: "{0}"'.format(action))
+
     def analyze_schema(self, cur):
         """analyze the postgresql schema for the columns of the target table"""
         self._columns = {}
+        pg_version = postgresql_version(cur)
         logger.info('Database server uses PostgreSQL version "{0}" with PostGIS version "{1}"'.format(
-                    postgresql_version(cur),
+                    pg_version,
                     postgis_version(cur),
             ))
+
+        self.postgres_version = postgresql_extract_version(pg_version)
         logger.info('Analyzing schema of relation {0}.{1}'.format(self.schema_name, self.table_name))
         cur.execute('''select column_name, udt_name as datatype, 
                                 character_maximum_length as max_length
@@ -132,12 +159,15 @@ class PostgresqlWriter(QuoteIdentMixin):
         if len(target_columns) == 0:
             return
 
-        sql = 'insert into {0}.{1} ({2}) select {3}'.format(
+        sql = 'insert into {0}.{1} ({2}) (select {3})'.format(
                         self.quote_ident(self.schema_name, cur),
                         self.quote_ident(self.table_name, cur),
                         ', '.join([self.quote_ident(c, cur) for c in target_columns]),
                         ', '.join(placeholders)
         )
+
+        if self.on_conflict:
+            sql = ' '.join((sql, ' on conflict ', self.on_conflict))
         cur.execute(sql, values)
 
 
@@ -193,13 +223,16 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
            return self._mapping_properties.get(property_name)
         else:
            # automapping by corellating the names
-            sanitized_name = property_name.lower() # TODO: improve
+            sanitized_name = property_name.lower()
             if sanitized_name in self.writer.columns():
                return sanitized_name
         return None
 
     def analyze_schema(self, cur):
         self.writer.analyze_schema(cur)
+
+    def on_conflict(self, action):
+        self.writer.on_conflict(action)
 
     def handle_message(self, cur, data):
 

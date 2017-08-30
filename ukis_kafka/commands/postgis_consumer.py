@@ -27,7 +27,8 @@ def print_example_config(ctx, param, value):
             'topic_a': [{
                 'handler': 'postgisinsert',
                 'table_name': 'mytable',
-                'schema_name': 'public'
+                'schema_name': 'public',
+                'on_conflict': 'do nothing'
             }],
             'topic_b': [{
                 'handler': 'postgisinsert',
@@ -116,6 +117,11 @@ def main(cfg_file):
                 metafield_map = config.get(['topics', topic_name, i, 'metafield_map'], required=False)
                 if metafield_map is not None:
                     handler.set_metafield_mapping(metafield_map)
+
+                on_conflict = config.get(['topics', topic_name, i, 'on_conflict'], required=False)
+                on_conflict = on_conflict.strip()
+                if on_conflict:
+                    handler.on_conflict(on_conflict)
             else:
                 raise ValueError('unknown handler {0}'.format(handler_name))
             if handler:
