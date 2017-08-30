@@ -109,7 +109,6 @@ def main(cfg_file):
                     config.get(('topics', topic_name, i, 'schema_name'), required=False),
                     config.get(('topics', topic_name, i, 'table_name'))
                 )
-
                 property_map = config.get(['topics', topic_name, i, 'property_map'], required=False)
                 if property_map is not None:
                     handler.set_property_mapping(property_map)

@@ -130,13 +130,18 @@ class PostgresqlWriter(QuoteIdentMixin):
                                 and table_schema = %s
                                 and ordinal_position > 0''',
                             (self.table_name, self.schema_name))
-        # TODO: fail when the table does not exist
+
         for column_name, datatype, max_length in cur.fetchall():
             self._columns[column_name] = ColumnSchema(
                     name=column_name,
                     datatype=datatype,
                     max_length=max_length
             )
+
+        # fail when the table does not exist or permissions prevent the access
+        if len(self._columns) == 0:
+            raise Exception('Could not collect schema information on relation {0}.{1}'.format(
+                        self.schema_name, self.table_name))
 
     def write(self, cur, valuedict):
         target_columns = []
@@ -222,9 +227,9 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         '''returns the name of the column where a property of a message should be stored.
            returning None means the property will be ignored.'''
         if self._mapping_properties is not None:
-           return self._mapping_properties.get(property_name)
+            return self._mapping_properties.get(property_name)
         else:
-           # automapping by corellating the names
+            # automapping by corellating the names
             sanitized_name = property_name.lower()
             if sanitized_name in self.writer.columns():
                return sanitized_name
@@ -248,7 +253,8 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
 
         for prop_name, prop_value in data['properties'].items():
             col_name = self._column_for_property(prop_name)
-            valuedict[col_name] = prop_value
+            if col_name:
+                valuedict[col_name] = prop_value
 
         if self._geometry_column:
             valuedict[self._geometry_column] = data['wkb']
