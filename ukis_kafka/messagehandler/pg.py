@@ -5,6 +5,7 @@ from psycopg2.extras import Json
 from dateutil.parser import parse as date_parse
 
 import logging
+import collections
 
 from .base import BaseMessageHandler
 
@@ -27,18 +28,26 @@ def pg_sanitize_value(value, pg_datatype, max_length):
             # to make in work for values send as int/float/...
             if max_length is not None:
                 return str(value)[:max_length]
-        elif pg_datatype == 'bytea':
+        elif pg_datatype in ('bytea', 'geometry'):
             return Binary(value)
         elif pg_datatype == 'json':
             # serialize to json to use value with postgresql json type
             return Json(value)
     return value
 
+def postgresql_version(cur):
+    cur.execute('select version()')
+    return cur.fetchone()[0]
 
-class PgBaseMessageHandler(BaseMessageHandler):
-    '''common functionality for postgresql-targeting message handlers
-       
-       This class provides no handling bit itself'''
+def postgis_version(cur):
+    cur.execute('''select exists(select routine_name from information_schema.routines where routine_name like 'postgis_version')''')
+    if not cur.fetchone()[0]:
+        raise RuntimeError("the database server does not have postgis installed")
+    cur.execute('select postgis_version()')
+    return cur.fetchone()[0]
+
+
+class QuoteIdentMixin(object):
 
     _ident_quoted_cache = {}
 
@@ -52,17 +61,87 @@ class PgBaseMessageHandler(BaseMessageHandler):
             self._ident_quoted_cache[s] = cur.fetchone()[0]
         return self._ident_quoted_cache[s]
 
-    def postgresql_version(self, cur):
-        cur.execute('select version()')
-        return cur.fetchone()[0]
+class PgBaseMessageHandler(BaseMessageHandler, QuoteIdentMixin):
+    '''common functionality for postgresql-targeting message handlers
+       
+       This class provides no handling bit itself'''
 
-    def postgis_version(self, cur):
-        cur.execute('''select exists(select routine_name from information_schema.routines where routine_name like 'postgis_version')''')
-        if not cur.fetchone()[0]:
-            raise RuntimeError("the database server does not have postgis installed")
-        cur.execute('select postgis_version()')
-        return cur.fetchone()[0]
+ColumnSchema = collections.namedtuple('ColumnSchema', 'name, datatype, max_length')
 
+class PostgresqlWriter(QuoteIdentMixin):
+    table_name = None
+    schema_name = None
+
+    _columns = {}
+
+    def __init__(self, cur, schema_name, table_name):
+        self.schema_name = schema_name or 'public'
+        self.table_name = table_name
+        self.analyze_schema(cur)
+
+    def columns(self, datatype=None):
+        c = {}
+        c.update(self._columns) # make a copy
+        if datatype: # return only the columns of the given datatype
+            c = {k :v for k,v in c.iteritems() if v.datatype == datatype}
+        return c
+
+    def analyze_schema(self, cur):
+        """analyze the postgresql schema for the columns of the target table"""
+        self._columns = {}
+        logger.info('Database server uses PostgreSQL version "{0}" with PostGIS version "{1}"'.format(
+                    postgresql_version(cur),
+                    postgis_version(cur),
+            ))
+        logger.info('Analyzing schema of relation {0}.{1}'.format(self.schema_name, self.table_name))
+        cur.execute('''select column_name, udt_name as datatype, 
+                                character_maximum_length as max_length
+                            from information_schema.columns 
+                            where table_name = %s
+                                and table_schema = %s
+                                and ordinal_position > 0''',
+                            (self.table_name, self.schema_name))
+        # TODO: fail when the table does not exist
+        for column_name, datatype, max_length in cur.fetchall():
+            self._columns[column_name] = ColumnSchema(
+                    name=column_name,
+                    datatype=datatype,
+                    max_length=max_length
+            )
+
+    def write(self, cur, valuedict):
+        target_columns = []
+        values = []
+        placeholders = []
+
+        for column, value in valuedict.iteritems():
+            if column in self._columns:
+                column_schema = self._columns[column]
+                target_columns.append(column)
+                values.append(pg_sanitize_value(
+                            value,
+                            column_schema.datatype,
+                            column_schema.max_length
+                ))
+                if column_schema.datatype == 'geometry':
+                    placeholders.append('st_geomfromwkb(%s::bytea)')
+                else:
+                    placeholders.append('%s::'+column_schema.datatype)
+
+        # without any matching columns, there is nothing to do
+        if len(target_columns) == 0:
+            return
+
+        sql = 'insert into {0}.{1} ({2}) select {3}'.format(
+                        self.quote_ident(self.schema_name, cur),
+                        self.quote_ident(self.table_name, cur),
+                        ', '.join([self.quote_ident(c, cur) for c in target_columns]),
+                        ', '.join(placeholders)
+        )
+        cur.execute(sql, values)
+
+
+    
 
 class PostgisInsertMessageHandler(PgBaseMessageHandler):
     '''insert incomming messages in an database table.
@@ -72,11 +151,8 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
     Timestamps are analyzed and brought into ISO-format when possible.
     '''
 
-    table_name = None
-    schema_name = None
-
+    writer = None
     # database schema
-    _columns = {}
     _geometry_column = None
 
     # dict which maps the properties/meta fields of the features
@@ -85,9 +161,13 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
     _mapping_properties = None
     _mapping_metafields = None
 
-    def __init__(self, schema_name, table_name):
-        self.schema_name = schema_name or 'public'
-        self.table_name = table_name
+    def __init__(self, cur, schema_name, table_name):
+        self.writer = PostgresqlWriter(cur, schema_name, table_name)
+        geom_columns = self.writer.columns(datatype='geometry').keys()
+        if len(geom_columns) == 1:
+            self._geometry_column = geom_columns[0]
+        if len(geom_columns) > 1:
+            raise RuntimeError('unable to deal with more than one geometry column') # needs to be improved in the future
 
 
     def set_property_mapping(self, mapping):
@@ -106,33 +186,6 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         '''map the meta fields of the incomming features to database columns.'''
         self._mapping_metafields = mapping
 
-    def collect_schema(self, cur):
-        """analyze the postgresql schema for the colums of the target table"""
-        self._columns = {}
-        self._geometry_column = None
-        logger.info('Database server uses PostgreSQL version "{0}" with PostGIS version "{1}"'.format(
-                    self.postgresql_version(cur),
-                    self.postgis_version(cur),
-            ))
-        logger.info('Analyzing schema of relation {0}.{1}'.format(self.schema_name, self.table_name))
-        cur.execute('''select column_name, udt_name as datatype, 
-                                character_maximum_length as max_length
-                            from information_schema.columns 
-                            where table_name = %s
-                                and table_schema = %s
-                                and ordinal_position > 0''',
-                            (self.table_name, self.schema_name))
-        for column_name, datatype, max_length in cur.fetchall():
-            if datatype == 'geometry':
-                if self._geometry_column is not None:
-                    raise RuntimeError('unable to deal with more than one geometry column') # needs to be improved in the future
-                self._geometry_column = column_name
-            else:
-                self._columns[column_name] = {
-                    'datatype': datatype,
-                    'max_length': max_length
-                }
-
     def _column_for_property(self, property_name):
         '''returns the name of the column where a property of a message should be stored.
            returning None means the property will be ignored.'''
@@ -141,51 +194,28 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         else:
            # automapping by corellating the names
             sanitized_name = property_name.lower() # TODO: improve
-            if sanitized_name in self._columns:
+            if sanitized_name in self.writer.columns():
                return sanitized_name
         return None
 
-    def sanitize_value(self, name, value):
-        return pg_sanitize_value(value,
-                    self._columns[name]['datatype'],
-                    self._columns[name]['max_length']
-        )
+    def analyze_schema(self, cur):
+        self.writer.analyze_schema(cur)
 
     def handle_message(self, cur, data):
 
-        # prepare the values for insertion into the db
-        target_columns = []
-        values = []
-        placeholders = []
-
-        def append_col(col_name, value):
-            if col_name:
-                target_columns.append(col_name)
-                values.append(self.sanitize_value(col_name, value))
-                placeholders.append('%s::'+self._columns[col_name]['datatype'])
+        # collect the values for insertion into the db
+        valuedict = {}
 
         # handle meta fields first, to give properties a higher priority (possible override)
         if self._mapping_metafields is not None:
             for mf_name, col_name in self._mapping_metafields.items():
-                append_col(col_name, data['meta'].get(mf_name))
+                valuedict[col_name] = data['meta'].get(mf_name)
 
         for prop_name, prop_value in data['properties'].items():
             col_name = self._column_for_property(prop_name)
-            append_col(col_name, prop_value)
+            valuedict[col_name] = prop_value
 
         if self._geometry_column:
-            target_columns.append(self._geometry_column)
-            values.append(Binary(data['wkb']))
-            placeholders.append('st_geomfromwkb(%s::bytea)')
+            valuedict[self._geometry_column] = data['wkb']
 
-        # without any matching colums, there is nothing to do
-        if len(target_columns) == 0:
-            return
-
-        sql = 'insert into {0}.{1} ({2}) select {3}'.format(
-                        self.quote_ident(self.schema_name, cur),
-                        self.quote_ident(self.table_name, cur),
-                        ', '.join([self.quote_ident(c, cur) for c in target_columns]),
-                        ', '.join(placeholders)
-        )
-        cur.execute(sql, values)
+        self.writer.write(cur, valuedict)

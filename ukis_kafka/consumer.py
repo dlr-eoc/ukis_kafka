@@ -21,7 +21,7 @@ class BaseConsumer(KafkaConsumer):
             config['max_poll_records'] = 100
         config['value_deserializer'] = basic_from_wireformat
         config['key_deserializer'] = pack.unpack
-        super(self.__class__, self).__init__(*topics, **config)
+        super(BaseConsumer, self).__init__(*topics, **config)
 
     def register_topic_handler(self, topic, handler):
         self.topic_handlers[topic] = handler
@@ -69,7 +69,7 @@ class PostgresqlConsumer(BaseConsumer):
         # This class handles synchronizing between kafka and postgresql commits itself
         config['enable_auto_commit'] = False
 
-        super(self.__class__, self).__init__(*topics, **config)
+        super(PostgresqlConsumer, self).__init__(*topics, **config)
         self.conn = conn
 
     def is_connection_alive(self):
@@ -80,7 +80,8 @@ class PostgresqlConsumer(BaseConsumer):
 
         # collect the schema information in all handlers
         for handler in set(self.topic_handlers.values()):
-            handler.collect_schema(cur)
+            if hasattr(handler, 'analyze_schema'):
+                handler.analyze_schema(cur)
 
         while True:
             messages = self.poll(timeout_ms=20*1000)

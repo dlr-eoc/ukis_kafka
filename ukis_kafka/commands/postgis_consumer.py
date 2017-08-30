@@ -84,7 +84,8 @@ def main(cfg_file):
 
     # establish a db connection
     conn = psycopg2.connect(config.get(('postgresql', 'dsn')))
-    conn.cursor().execute('set application_name = %s', (click.get_current_context().info_name or '',))
+    cur = conn.cursor()
+    cur.execute('set application_name = %s', (click.get_current_context().info_name or '',))
     conn.commit()
 
     # connect to kafka
@@ -102,6 +103,7 @@ def main(cfg_file):
         handler = None
         if handler_name == 'postgisinsert':
             handler = PostgisInsertMessageHandler(
+                cur,
                 config.get(('topics', topic_name, 'schema_name'), required=False),
                 config.get(('topics', topic_name, 'table_name'))
             )
