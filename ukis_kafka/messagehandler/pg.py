@@ -73,10 +73,12 @@ class QuoteIdentMixin(object):
         return self._ident_quoted_cache[s]
 
 
-class PgBaseMessageHandler(BaseMessageHandler, QuoteIdentMixin):
+class PgBaseMessageHandler(BaseMessageHandler):
     '''common functionality for postgresql-targeting message handlers
        
        This class provides no handling bit itself'''
+    pass
+
 
 ColumnSchema = collections.namedtuple('ColumnSchema', 'name, datatype, max_length')
 
