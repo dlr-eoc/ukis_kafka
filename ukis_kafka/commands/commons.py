@@ -68,11 +68,12 @@ class Configuration(object):
         v.update(self.cfg) # make a copy
         for i in range(len(keys)):
             try:
-                if type(v[keys[i]]) != dict and i != (len(keys)-1):
+                if type(v[keys[i]]) not in (dict, list, tuple) and i != (len(keys)-1):
                     raise TypeError
                 v = v[keys[i]]
             except (KeyError, TypeError):
                 if default is not None or required == False:
                     return default
-                raise ConfigurationError('Configuration setting {0} is not set'.format('.'.join(keys)))
+                raise ConfigurationError('Configuration setting {0} is not set'.format(
+                            '.'.join(map(str, keys))))
         return v or default

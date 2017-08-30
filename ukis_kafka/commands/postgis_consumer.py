@@ -24,12 +24,12 @@ def print_example_config(ctx, param, value):
             'kafka_server': 'localhost:9092'
         },
         'topics': {
-            'topic_a': {
+            'topic_a': [{
                 'handler': 'postgisinsert',
                 'table_name': 'mytable',
                 'schema_name': 'public'
-            },
-            'topic_b': {
+            }],
+            'topic_b': [{
                 'handler': 'postgisinsert',
                 'table_name': 'mytable',
                 'schema_name': 'public',
@@ -40,7 +40,7 @@ def print_example_config(ctx, param, value):
                     'area_km2': 'area_km2',
                     'datetime': 'datetime'
                 }
-            }
+            }]
         }
     })
     click.echo(cfg.yaml_dumps())
@@ -99,26 +99,27 @@ def main(cfg_file):
         )
 
     for topic_name in config.get(('topics',)).keys():
-        handler_name = config.get(('topics', topic_name, 'handler'), default='postgisinsert')
-        handler = None
-        if handler_name == 'postgisinsert':
-            handler = PostgisInsertMessageHandler(
-                cur,
-                config.get(('topics', topic_name, 'schema_name'), required=False),
-                config.get(('topics', topic_name, 'table_name'))
-            )
+        for i in range(len(config.get(('topics', topic_name)))):
+            handler_name = config.get(('topics', topic_name, i, 'handler'), default='postgisinsert')
+            handler = None
+            if handler_name == 'postgisinsert':
+                handler = PostgisInsertMessageHandler(
+                    cur,
+                    config.get(('topics', topic_name, i, 'schema_name'), required=False),
+                    config.get(('topics', topic_name, i, 'table_name'))
+                )
 
-            property_map = config.get(['topics', topic_name, 'property_map'], required=False)
-            if property_map is not None:
-                handler.set_property_mapping(property_map)
+                property_map = config.get(['topics', topic_name, i, 'property_map'], required=False)
+                if property_map is not None:
+                    handler.set_property_mapping(property_map)
 
-            metafield_map = config.get(['topics', topic_name, 'metafield_map'], required=False)
-            if metafield_map is not None:
-                handler.set_metafield_mapping(metafield_map)
-        else:
-            raise ValueError('unknown handler {0}'.format(handler_name))
-        if handler:
-            consumer.register_topic_handler(topic_name, handler)
+                metafield_map = config.get(['topics', topic_name, i, 'metafield_map'], required=False)
+                if metafield_map is not None:
+                    handler.set_metafield_mapping(metafield_map)
+            else:
+                raise ValueError('unknown handler {0}'.format(handler_name))
+            if handler:
+                consumer.register_topic_handler(topic_name, handler)
 
     click.echo('Starting to consume')
     consumer.consume()

@@ -8,13 +8,15 @@ from .wireformat import pack
 from psycopg2.extensions import TRANSACTION_STATUS_UNKNOWN
 
 import logging
+import collections
 
 logger = logging.getLogger(__name__)
 
 class BaseConsumer(KafkaConsumer):
     '''base class for all consumers in the package'''
 
-    topic_handlers = {}
+    # maps a topic to a list of handlers
+    topic_handlers = collections.defaultdict(list)
 
     def __init__(self, *topics, **config):
         if not config.get('max_poll_records', None):
@@ -24,7 +26,7 @@ class BaseConsumer(KafkaConsumer):
         super(BaseConsumer, self).__init__(*topics, **config)
 
     def register_topic_handler(self, topic, handler):
-        self.topic_handlers[topic] = handler
+        self.topic_handlers.setdefault(topic, []).append(handler)
         self.subscribe(self.topic_handlers.keys())
 
     def consume(self):
@@ -36,13 +38,14 @@ class BaseConsumer(KafkaConsumer):
                 count_handled = 0
                 count_dropped = 0
                 for topicpartition, msglist in messages.items():
-                    handler = self.topic_handlers[topicpartition.topic]
+                    handlers = self.topic_handlers[topicpartition.topic]
                     for msg in msglist:
                         data = msg.value
                         logger.debug('Handling message on topic={0}'.format(topicpartition.topic))
                         count_handled += 1
                         try:
-                            handler.handle_message(data)
+                            for handler in handlers:
+                                handler.handle_message(data)
                         except Exception, e:
                             raise
                             count_dropped += 1
@@ -79,9 +82,10 @@ class PostgresqlConsumer(BaseConsumer):
         cur = self.conn.cursor()
 
         # collect the schema information in all handlers
-        for handler in set(self.topic_handlers.values()):
-            if hasattr(handler, 'analyze_schema'):
-                handler.analyze_schema(cur)
+        for handlers in self.topic_handlers.values():
+            for handler in handlers:
+                if hasattr(handler, 'analyze_schema'):
+                    handler.analyze_schema(cur)
 
         while True:
             messages = self.poll(timeout_ms=20*1000)
@@ -93,14 +97,15 @@ class PostgresqlConsumer(BaseConsumer):
                 count_handled = 0
                 count_dropped = 0
                 for topicpartition, msglist in messages.items():
-                    handler = self.topic_handlers[topicpartition.topic]
+                    handlers = self.topic_handlers[topicpartition.topic]
                     for msg in msglist:
                         data = msg.value
                         logger.debug('Handling message on topic={0}'.format(topicpartition.topic))
                         count_handled += 1
                         try:
                             cur.execute("savepoint current_msg")
-                            handler.handle_message(cur, data)
+                            for handler in handlers:
+                                handler.handle_message(cur, data)
                             cur.execute("release savepoint current_msg")
                         except Exception, e:
                             cur.execute("rollback to savepoint current_msg")
