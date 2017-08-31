@@ -1,0 +1,28 @@
+# systemd start-script for ukis_postgis_consumer
+#
+# * Needs to be placed in /etc/systemd/system/
+# * Some paremeters are deployment-specific and need to be adapted:
+#   * User
+#   * WorkingDirectory
+#   * The path in ExecStart
+#
+# After adding this file to the system run
+# 
+#    systemctl daemon-reload 
+#
+# to let systemd find this file. After that the service can be enabled and
+# started.
+
+[Unit]
+Description=ukis_postgis_consumer Service
+After=network.target postgresql.service kafka.service
+
+[Service]
+Type=simple
+User=nobody
+WorkingDirectory=/tmp/ukis_kafka
+ExecStart=/tmp/y/bin/ukis_postgis_consumer /tmp/ukis_kafka/configuration.yml
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
