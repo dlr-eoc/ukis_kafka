@@ -10,6 +10,74 @@ import psycopg2
 def print_example_config(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
+    explanation = '''
+Configuration file for {prog_name}
+
+Logging section
+===============
+
+* The specified logfile will automaticaly be rotated.
+* When no logfile is set, the log will be written to stdout.
+* The available log levels are: {log_levels}.
+
+Postgresql section
+==================
+
+* The 'dsn'-Parameter is mandatory and used to connect to the
+  database server. The syntax is libpqs connection string format
+  and documented under 
+  https://www.postgresql.org/docs/9.6/static/libpq-connect.html
+
+Kafka section
+=============
+
+* All parameters are mandatory.
+
+Topics section
+==============
+
+This configuration section contains a mapping of topic names to subscribe to and 
+handler chains where the received messages are passed through. This
+means it is possible to specify more than one handler to process messages
+multiple times.
+
+Each handler configuration consists of the mandatory name of the handler in
+the "handler" parameter and a handler specific number of settings.
+
+postgisinsert Handler
+---------------------
+
+This handler inserts incomming messages into the database.
+PostGIS geometries are supported. Transactions are supported, each message
+is inserted with its own savepoint. So a rollback only needs to happen for the
+last message when inserting fails. Messages which can not be inserted in the
+database will be discarded.
+Incomming values are cast to the type of the database columns when possible and there
+are sanitation routines for types like timestamps to attempt to make them understandable for
+the database server.
+
+The 'table_name' and 'schema_name' settings specify the target table and are required.
+
+'property_map' maps the properties of the features of the messages to database columns. The keys
+are the names of the features properties, the values the names of the db columns. When this setting
+is not set {prog_name} performs an automapping and correlates properties and columns by their names.
+
+'metafield_map' maps the fields of the messages 'meta' attribute to database columns. The keys
+are the names of the features meta fields, the values the names of the db columns.
+When not set, no mapping will be performed.
+
+'predefined_values' is a set of values defined in the configuration file which will be inserted
+into the database columns. The keys are the names of the database columns, the values are the values.
+
+The 'on_conflict' settings is optional and supports PostgreSQLs INSERT-conflict handling.
+Possible values are 'do nothing' and 'do update'. This setting requires PostgreSQL 9.5. 
+For more information please refer to 
+https://www.postgresql.org/docs/9.5/static/sql-insert.html .
+
+    '''.format(
+            prog_name = ctx.info_name or '-unknown-',
+            log_levels = ', '.join(commons.loglevel_names())
+    )
     cfg = commons.Configuration({
         'logging': {
             'level': 'info',
@@ -49,10 +117,13 @@ def print_example_config(ctx, param, value):
                     # Adds fixed values for columns.
                     # maps the names of db columns to values they will
                     # receive
+                    'my_column': 'some text'
                 }
             }]
         }
     })
+    for line in explanation.split('\n'):
+        click.echo("# {0}".format(line))
     click.echo(cfg.yaml_dumps())
     ctx.exit()
 
@@ -74,7 +145,7 @@ def read_configuration(cfg_file):
               help='Print version and exit.')
 @click.option('--example_configuration', is_flag=True, callback=print_example_config,
               expose_value=False, is_eager=True,
-              help='Print an example configuration file and exit.')
+              help='Print an example configuration with explanations and exit.')
 @click.argument('cfg_file', type=click.File(mode='r'))
 def main(cfg_file):
     '''
