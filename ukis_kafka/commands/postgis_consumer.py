@@ -34,12 +34,21 @@ def print_example_config(ctx, param, value):
                 'handler': 'postgisinsert',
                 'table_name': 'mytable',
                 'schema_name': 'public',
-                'metafield_map': { # stores meta-field in db columns
+                'metafield_map': { 
+                    # Stores meta-field in db columns. 
+                    # The metafield names are the keys, the db columns the values.
                     'filename': 'id'
                 },
-                'property_map': { # no auto-mapping. manual field to db-column correlation
+                'property_map': { 
+                    # Setting this disables auto-mapping.
+                    # manual field to db-column correlation.
                     'area_km2': 'area_km2',
                     'datetime': 'datetime'
+                },
+                'predefined_values': {
+                    # Adds fixed values for columns.
+                    # maps the names of db columns to values they will
+                    # receive
                 }
             }]
         }
@@ -116,6 +125,10 @@ def main(cfg_file):
                 metafield_map = config.get(['topics', topic_name, i, 'metafield_map'], required=False)
                 if metafield_map is not None:
                     handler.set_metafield_mapping(metafield_map)
+
+                predefined_values = config.get(['topics', topic_name, i, 'predefined_values'], required=False)
+                if predefined_values is not None:
+                    handler.set_predefined_values(predefined_values)
 
                 on_conflict = config.get(['topics', topic_name, i, 'on_conflict'], required=False)
                 on_conflict = on_conflict.strip()

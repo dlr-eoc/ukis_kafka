@@ -197,6 +197,7 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
     # when this is None, auto-mapping is used
     _mapping_properties = None
     _mapping_metafields = None
+    _predefined_values = None
 
     def __init__(self, cur, schema_name, table_name):
         self.writer = PostgresqlWriter(cur, schema_name, table_name)
@@ -222,6 +223,9 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
     def set_metafield_mapping(self, mapping):
         '''map the meta fields of the incomming features to database columns.'''
         self._mapping_metafields = mapping
+
+    def set_predefined_values(self, valuedict):
+        self._predefined_values = valuedict
 
     def _column_for_property(self, property_name):
         '''returns the name of the column where a property of a message should be stored.
@@ -255,6 +259,9 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
             col_name = self._column_for_property(prop_name)
             if col_name:
                 valuedict[col_name] = prop_value
+
+        if self._predefined_values is not None:
+            valuedict.update(self._predefined_values)
 
         if self._geometry_column:
             valuedict[self._geometry_column] = data['wkb']
