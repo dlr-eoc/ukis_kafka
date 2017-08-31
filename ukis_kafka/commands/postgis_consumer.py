@@ -36,10 +36,10 @@ Kafka section
 Topics section
 ==============
 
-This configuration section contains a mapping of topic names to subscribe to and 
-handler chains where the received messages are passed through. This
-means it is possible to specify more than one handler to process messages
-multiple times.
+This configuration section contains a mapping of topic names to subscribe to
+and handler chains where the received messages are passed through. This means
+it is possible to specify more than one handler to process messages multiple
+times.
 
 Each handler configuration consists of the mandatory name of the handler in
 the "handler" parameter and a handler specific number of settings.
@@ -52,26 +52,30 @@ PostGIS geometries are supported. Transactions are supported, each message
 is inserted with its own savepoint. So a rollback only needs to happen for the
 last message when inserting fails. Messages which can not be inserted in the
 database will be discarded.
-Incomming values are cast to the type of the database columns when possible and there
-are sanitation routines for types like timestamps to attempt to make them understandable for
-the database server.
 
-The 'table_name' and 'schema_name' settings specify the target table and are required.
+Incomming values are cast to the type of the database columns when possible and
+there are sanitation routines for types like timestamps to attempt to make them
+understandable for the database server.
 
-'property_map' maps the properties of the features of the messages to database columns. The keys
-are the names of the features properties, the values the names of the db columns. When this setting
-is not set {prog_name} performs an automapping and correlates properties and columns by their names.
+The 'table_name' and 'schema_name' settings specify the target table and are
+required.
 
-'metafield_map' maps the fields of the messages 'meta' attribute to database columns. The keys
-are the names of the features meta fields, the values the names of the db columns.
-When not set, no mapping will be performed.
+'property_map' maps the properties of the features of the messages to database
+columns. The keys are the names of the features properties, the values the
+names of the db columns. When this setting is not set {prog_name} performs an
+automapping and correlates properties and columns by their names.
 
-'predefined_values' is a set of values defined in the configuration file which will be inserted
-into the database columns. The keys are the names of the database columns, the values are the values.
+'metafield_map' maps the fields of the messages 'meta' attribute to database
+columns. The keys are the names of the features meta fields, the values the
+names of the db columns.  When not set, no mapping will be performed.
 
-The 'on_conflict' settings is optional and supports PostgreSQLs INSERT-conflict handling.
-Possible values are 'do nothing' and 'do update'. This setting requires PostgreSQL 9.5. 
-For more information please refer to 
+'predefined_values' is a set of values defined in the configuration file which
+will be inserted into the database columns. The keys are the names of the
+database columns, the values are the values.
+
+The 'on_conflict' settings is optional and supports PostgreSQLs INSERT-conflict
+handling.  Possible values are 'do nothing' and 'do update'. This setting
+requires PostgreSQL 9.5.  For more information please refer to
 https://www.postgresql.org/docs/9.5/static/sql-insert.html .
 
     '''.format(
@@ -148,15 +152,13 @@ def read_configuration(cfg_file):
               help='Print an example configuration with explanations and exit.')
 @click.argument('cfg_file', type=click.File(mode='r'))
 def main(cfg_file):
-    '''
-    Consume vetor data from Kafka and write it to a PostGIS database.
+    '''Consume vetor data from Kafka and write it to a PostGIS database.
 
     Attempts to autocast incomming ettributes to the types of the database
     columns. Timestamps are analyzed and brought into ISO-format when possible.
 
-    Configuration is handled by a YAML configuration file. See the --example_configuration
-    switch.
-    '''
+    Configuration is handled by a YAML configuration file. See the
+    --example_configuration switch.'''
 
     # read the configuration and init
     config = read_configuration(cfg_file)

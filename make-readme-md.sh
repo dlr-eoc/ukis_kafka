@@ -6,15 +6,24 @@ set -e
 cat >README.md <<EOF
 # UKIS Kafka
 
-This package implements a compact binary wireformat to stream vector features over Apache Kafka. The package itself uses a high/easy-to-use abstraction level of the geodata mostly based on the [fiona library](http://toblerity.org/fiona/index.html).
+This package implements a compact binary wireformat to stream vector features
+over Apache Kafka. The package itself uses a high/easy-to-use abstraction level
+of the geodata mostly based on the [fiona
+library](http://toblerity.org/fiona/index.html).
 
 ## Serialization format
 
-The serialization format takes inspirations from the [data model of the fiona library](http://toblerity.org/fiona/manual.html#data-model), which
-itself is based on the GeoJSON specification. This library adds a few modification to this:
+The serialization format takes inspirations from the [data model of the fiona
+library](http://toblerity.org/fiona/manual.html#data-model), which itself is
+based on the GeoJSON specification. This library adds a few modification to
+this:
 
-* Geometries are serialized to [WKB/Well-known-binary](https://en.wikipedia.org/wiki/Well-known_text) for a more compact representation. The value is stored in the \`wkb\`-field.
-* A \`meta\` object is added. This object is used to add meta information to the features without name-conflicts in the \`property\`-object.
+* Geometries are serialized to
+  [WKB/Well-known-binary](https://en.wikipedia.org/wiki/Well-known_text) for a
+  more compact representation. The value is stored in the \`wkb\`-field.
+
+* A \`meta\` object is added. This object is used to add meta information to
+  the features without name-conflicts in the \`property\`-object.
 
 An example for structure for a feature is
 
@@ -35,7 +44,8 @@ These structures are serialized using [messagepack](http://msgpack.org/).
 
 ## Shell commands
 
-This package provides several shell commands. Each of these has its own help, which can be invoked by \`[command] --help\`.
+This package provides several shell commands. Each of these has its own help,
+which can be invoked by \`[command] --help\`.
 
 Available after installation are:
 
@@ -81,7 +91,9 @@ cat >>README.md <<EOF
 
 ## Library support
 
-The library offers interfaces to a few python geodata libraries. When a new interface is needed, please try to implement it in this library for a better reuseability.
+The library offers interfaces to a few python geodata libraries. When a new
+interface is needed, please try to implement it in this library for a better
+reuseability.
 
 ### Fiona
 

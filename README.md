@@ -1,14 +1,23 @@
 # UKIS Kafka
 
-This package implements a compact binary wireformat to stream vector features over Apache Kafka. The package itself uses a high/easy-to-use abstraction level of the geodata mostly based on the [fiona library](http://toblerity.org/fiona/index.html).
+This package implements a compact binary wireformat to stream vector features
+over Apache Kafka. The package itself uses a high/easy-to-use abstraction level
+of the geodata mostly based on the [fiona
+library](http://toblerity.org/fiona/index.html).
 
 ## Serialization format
 
-The serialization format takes inspirations from the [data model of the fiona library](http://toblerity.org/fiona/manual.html#data-model), which
-itself is based on the GeoJSON specification. This library adds a few modification to this:
+The serialization format takes inspirations from the [data model of the fiona
+library](http://toblerity.org/fiona/manual.html#data-model), which itself is
+based on the GeoJSON specification. This library adds a few modification to
+this:
 
-* Geometries are serialized to [WKB/Well-known-binary](https://en.wikipedia.org/wiki/Well-known_text) for a more compact representation. The value is stored in the `wkb`-field.
-* A `meta` object is added. This object is used to add meta information to the features without name-conflicts in the `property`-object.
+* Geometries are serialized to
+  [WKB/Well-known-binary](https://en.wikipedia.org/wiki/Well-known_text) for a
+  more compact representation. The value is stored in the `wkb`-field.
+
+* A `meta` object is added. This object is used to add meta information to
+  the features without name-conflicts in the `property`-object.
 
 An example for structure for a feature is
 
@@ -29,7 +38,8 @@ These structures are serialized using [messagepack](http://msgpack.org/).
 
 ## Shell commands
 
-This package provides several shell commands. Each of these has its own help, which can be invoked by `[command] --help`.
+This package provides several shell commands. Each of these has its own help,
+which can be invoked by `[command] --help`.
 
 Available after installation are:
 
@@ -108,10 +118,10 @@ A documented example configuration file:
 # Topics section
 # ==============
 # 
-# This configuration section contains a mapping of topic names to subscribe to and 
-# handler chains where the received messages are passed through. This
-# means it is possible to specify more than one handler to process messages
-# multiple times.
+# This configuration section contains a mapping of topic names to subscribe to
+# and handler chains where the received messages are passed through. This means
+# it is possible to specify more than one handler to process messages multiple
+# times.
 # 
 # Each handler configuration consists of the mandatory name of the handler in
 # the "handler" parameter and a handler specific number of settings.
@@ -124,26 +134,30 @@ A documented example configuration file:
 # is inserted with its own savepoint. So a rollback only needs to happen for the
 # last message when inserting fails. Messages which can not be inserted in the
 # database will be discarded.
-# Incomming values are cast to the type of the database columns when possible and there
-# are sanitation routines for types like timestamps to attempt to make them understandable for
-# the database server.
 # 
-# The 'table_name' and 'schema_name' settings specify the target table and are required.
+# Incomming values are cast to the type of the database columns when possible and
+# there are sanitation routines for types like timestamps to attempt to make them
+# understandable for the database server.
 # 
-# 'property_map' maps the properties of the features of the messages to database columns. The keys
-# are the names of the features properties, the values the names of the db columns. When this setting
-# is not set ukis_postgis_consumer performs an automapping and correlates properties and columns by their names.
+# The 'table_name' and 'schema_name' settings specify the target table and are
+# required.
 # 
-# 'metafield_map' maps the fields of the messages 'meta' attribute to database columns. The keys
-# are the names of the features meta fields, the values the names of the db columns.
-# When not set, no mapping will be performed.
+# 'property_map' maps the properties of the features of the messages to database
+# columns. The keys are the names of the features properties, the values the
+# names of the db columns. When this setting is not set ukis_postgis_consumer performs an
+# automapping and correlates properties and columns by their names.
 # 
-# 'predefined_values' is a set of values defined in the configuration file which will be inserted
-# into the database columns. The keys are the names of the database columns, the values are the values.
+# 'metafield_map' maps the fields of the messages 'meta' attribute to database
+# columns. The keys are the names of the features meta fields, the values the
+# names of the db columns.  When not set, no mapping will be performed.
 # 
-# The 'on_conflict' settings is optional and supports PostgreSQLs INSERT-conflict handling.
-# Possible values are 'do nothing' and 'do update'. This setting requires PostgreSQL 9.5. 
-# For more information please refer to 
+# 'predefined_values' is a set of values defined in the configuration file which
+# will be inserted into the database columns. The keys are the names of the
+# database columns, the values are the values.
+# 
+# The 'on_conflict' settings is optional and supports PostgreSQLs INSERT-conflict
+# handling.  Possible values are 'do nothing' and 'do update'. This setting
+# requires PostgreSQL 9.5.  For more information please refer to
 # https://www.postgresql.org/docs/9.5/static/sql-insert.html .
 # 
 #     
@@ -203,7 +217,9 @@ Options:
 
 ## Library support
 
-The library offers interfaces to a few python geodata libraries. When a new interface is needed, please try to implement it in this library for a better reuseability.
+The library offers interfaces to a few python geodata libraries. When a new
+interface is needed, please try to implement it in this library for a better
+reuseability.
 
 ### Fiona
 
