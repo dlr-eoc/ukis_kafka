@@ -3,6 +3,7 @@
 from .. import __version__ as ukis_kafka_version
 
 import logging
+from logging.handlers import RotatingFileHandler
 import sys
 
 import click
@@ -38,7 +39,7 @@ def init_logging(levelname, logfile=None):
         ch.setFormatter(formatter)
         root.addHandler(ch)
     else:
-        ch = logging.RotatingFileHanlder(logfile, maxBytes=10*1024*1024, backupCount=10)
+        ch = RotatingFileHandler(logfile, maxBytes=10*1024*1024, backupCount=10)
         ch.setLevel(level)
         ch.setFormatter(formatter)
         root.addHandler(ch)

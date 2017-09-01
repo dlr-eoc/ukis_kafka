@@ -163,7 +163,7 @@ def main(cfg_file):
     # read the configuration and init
     config = read_configuration(cfg_file)
     commons.init_logging(config.get(('logging', 'level'), default='info'),
-                logfile=config.get(('logging', 'logfile'), required=False))
+                logfile=config.get(('logging', 'file'), required=False))
 
     # establish a db connection
     conn = psycopg2.connect(config.get(('postgresql', 'dsn')))
@@ -181,7 +181,7 @@ def main(cfg_file):
             group_id=config.get(('kafka', 'group_id'))
         )
 
-    for topic_name in config.get(('topics',)).keys():
+    for topic_name in config.get(('topics',), default={}).keys():
         for i in range(len(config.get(('topics', topic_name)))):
             handler_name = config.get(('topics', topic_name, i, 'handler'), default='postgisinsert')
             handler = None
