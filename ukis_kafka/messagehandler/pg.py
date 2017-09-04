@@ -90,6 +90,9 @@ class PostgresqlWriter(QuoteIdentMixin):
 
     _columns = {}
 
+    # maps unique_constraints to their columns
+    _unique_constraints = collections.defaultdict(list)
+
     def __init__(self, cur, schema_name, table_name):
         self.schema_name = schema_name or 'public'
         self.table_name = table_name
@@ -108,6 +111,8 @@ class PostgresqlWriter(QuoteIdentMixin):
         if action == 'do nothing':
             self.on_conflict = 'do nothing'
         elif action == 'do update':
+            if len(self._unique_constraints) != 1:
+                raise Exception('do update is only supported when there is only one unique constraint for the table {0}.'.format(self.table_name))
             self.on_conflict = 'do update'
         else:
             raise Exception('unsupported on_conflict action: "{0}"'.format(action))
@@ -147,7 +152,7 @@ class PostgresqlWriter(QuoteIdentMixin):
         # collect the srids of the geometry columns
         geom_column_names = [k for k, v in self._columns.items() if v.datatype == 'geometry']
         if geom_column_names != []:
-            cur.execute('''select f_geometry_column, srid from geometry_columns 
+            cur.execute('''select f_geometry_column, srid from geometry_columns
                         where f_table_schema = %s
                             and f_table_name=%s''',
                         (self.schema_name, self.table_name))
@@ -156,6 +161,21 @@ class PostgresqlWriter(QuoteIdentMixin):
                 vc = dict(self._columns[column_name]._asdict())
                 vc['srid'] = srid
                 self._columns[column_name] = ColumnSchema(**vc)
+
+        # collect unique constraints
+        self._unique_constraints = collections.defaultdict(list)
+        cur.execute('''select ccu.column_name, tc.constraint_name
+                            from information_schema.table_constraints tc
+                            join information_schema.constraint_column_usage ccu on
+                                ccu.table_name = tc.table_name
+                                and ccu.table_schema = tc.table_schema
+                                and ccu.constraint_name = tc.constraint_name
+                        where tc.constraint_type = 'UNIQUE'
+                            and tc.table_name = %s
+                            and tc.table_schema = %s
+                ''', (self.table_name, self.schema_name))
+        for col_name, con_name in cur.fetchall():
+            self._unique_constraints[con_name].append(col_name)
 
     def write(self, cur, valuedict):
         target_columns = []
@@ -193,7 +213,25 @@ class PostgresqlWriter(QuoteIdentMixin):
         )
 
         if self.on_conflict:
-            sql = ' '.join((sql, ' on conflict ', self.on_conflict))
+            conflict_parts = [sql,]
+            if self.on_conflict == 'do update':
+                constraint_name, con_columns = self._unique_constraints.items()[0]
+
+                updateable_columns = list(set(target_columns) - set(con_columns))
+                if updateable_columns != []:
+                    conflict_parts.append('on conflict')
+                    conflict_parts.append('on constraint')
+                    conflict_parts.append(self.quote_ident(constraint_name, cur))
+                    conflict_parts.append('do update set')
+
+                    uc_parts = []
+                    for uc in updateable_columns:
+                        uc_parts.append('{uc} = EXCLUDED.{uc}'.format(uc=self.quote_ident(uc, cur)))
+                    conflict_parts.append(', '.join(uc_parts))
+            elif self.on_conflict == 'do nothing':
+                conflict_parts.append('on conflict')
+                conflict_parts.append(self.on_conflict)
+            sql = ' '.join(conflict_parts)
         cur.execute(sql, values)
 
 
