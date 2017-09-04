@@ -207,9 +207,9 @@ def main(cfg_file):
                 if predefined_values is not None:
                     handler.set_predefined_values(predefined_values)
 
-                on_conflict = config.get(['topics', topic_name, i, 'on_conflict'], required=False)
+                on_conflict = config.get(['topics', topic_name, i, 'on_conflict'], required=False, default='')
                 on_conflict = on_conflict.strip()
-                if on_conflict:
+                if on_conflict is not None and on_conflict != '':
                     handler.on_conflict(on_conflict)
 
                 handler.set_discard_geometries(config.get(['topics', topic_name, i, 'discard_geometries'],

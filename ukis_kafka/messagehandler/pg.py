@@ -140,7 +140,7 @@ class PostgresqlWriter(QuoteIdentMixin):
 
         # fail when the table does not exist or permissions prevent the access
         if len(self._columns) == 0:
-            raise Exception('Could not collect schema information on relation {0}.{1}'.format(
+            raise Exception('Could not collect schema information on relation {0}.{1} using information_schema.columns. Is the current user member of the role which owns the target table?'.format(
                         self.schema_name, self.table_name))
 
     def write(self, cur, valuedict):
