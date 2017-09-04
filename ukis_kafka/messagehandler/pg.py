@@ -80,7 +80,7 @@ class PgBaseMessageHandler(BaseMessageHandler):
     pass
 
 
-ColumnSchema = collections.namedtuple('ColumnSchema', 'name, datatype, max_length')
+ColumnSchema = collections.namedtuple('ColumnSchema', 'name, datatype, max_length, srid')
 
 class PostgresqlWriter(QuoteIdentMixin):
     table_name = None
@@ -135,13 +135,27 @@ class PostgresqlWriter(QuoteIdentMixin):
             self._columns[column_name] = ColumnSchema(
                     name=column_name,
                     datatype=datatype,
-                    max_length=max_length
+                    max_length=max_length,
+                    srid=0
             )
 
         # fail when the table does not exist or permissions prevent the access
         if len(self._columns) == 0:
             raise Exception('Could not collect schema information on relation {0}.{1} using information_schema.columns. Is the current user member of the role which owns the target table?'.format(
                         self.schema_name, self.table_name))
+
+        # collect the srids of the geometry columns
+        geom_column_names = [k for k, v in self._columns.items() if v.datatype == 'geometry']
+        if geom_column_names != []:
+            cur.execute('''select f_geometry_column, srid from geometry_columns 
+                        where f_table_schema = %s
+                            and f_table_name=%s''',
+                        (self.schema_name, self.table_name))
+            for column_name, srid in cur.fetchall():
+                # replace the namedtuple instance
+                vc = dict(self._columns[column_name]._asdict())
+                vc['srid'] = srid
+                self._columns[column_name] = ColumnSchema(**vc)
 
     def write(self, cur, valuedict):
         target_columns = []
@@ -158,7 +172,12 @@ class PostgresqlWriter(QuoteIdentMixin):
                             column_schema.max_length
                 ))
                 if column_schema.datatype == 'geometry':
-                    placeholders.append('st_geomfromwkb(%s::bytea)')
+                    if column_schema.srid != 0:
+                        # TODO: reprojection support
+                        values.append(column_schema.srid)
+                        placeholders.append('st_setsrid(st_geomfromwkb(%s::bytea), %s)')
+                    else:
+                        placeholders.append('st_geomfromwkb(%s::bytea)')
                 else:
                     placeholders.append('%s::'+column_schema.datatype)
 
