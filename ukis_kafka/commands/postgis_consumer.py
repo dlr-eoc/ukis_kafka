@@ -6,6 +6,7 @@ from ..messagehandler.pg import PostgisInsertMessageHandler
 
 import click
 import psycopg2
+import logging
 
 def print_example_config(ctx, param, value):
     if not value or ctx.resilient_parsing:
@@ -185,40 +186,44 @@ def main(cfg_file):
             group_id=config.get(('kafka', 'group_id'))
         )
 
-    for topic_name in config.get(('topics',), default={}).keys():
-        for i in range(len(config.get(('topics', topic_name)))):
-            handler_name = config.get(('topics', topic_name, i, 'handler'), default='postgisinsert')
-            handler = None
-            if handler_name == 'postgisinsert':
-                handler = PostgisInsertMessageHandler(
-                    cur,
-                    config.get(('topics', topic_name, i, 'schema_name'), required=False),
-                    config.get(('topics', topic_name, i, 'table_name'))
-                )
-                property_map = config.get(['topics', topic_name, i, 'property_map'], required=False)
-                if property_map is not None:
-                    handler.set_property_mapping(property_map)
+    try:
+        for topic_name in config.get(('topics',), default={}).keys():
+            for i in range(len(config.get(('topics', topic_name)))):
+                handler_name = config.get(('topics', topic_name, i, 'handler'), default='postgisinsert')
+                handler = None
+                if handler_name == 'postgisinsert':
+                    handler = PostgisInsertMessageHandler(
+                        cur,
+                        config.get(('topics', topic_name, i, 'schema_name'), required=False),
+                        config.get(('topics', topic_name, i, 'table_name'))
+                    )
+                    property_map = config.get(['topics', topic_name, i, 'property_map'], required=False)
+                    if property_map is not None:
+                        handler.set_property_mapping(property_map)
 
-                metafield_map = config.get(['topics', topic_name, i, 'metafield_map'], required=False)
-                if metafield_map is not None:
-                    handler.set_metafield_mapping(metafield_map)
+                    metafield_map = config.get(['topics', topic_name, i, 'metafield_map'], required=False)
+                    if metafield_map is not None:
+                        handler.set_metafield_mapping(metafield_map)
 
-                predefined_values = config.get(['topics', topic_name, i, 'predefined_values'], required=False)
-                if predefined_values is not None:
-                    handler.set_predefined_values(predefined_values)
+                    predefined_values = config.get(['topics', topic_name, i, 'predefined_values'], required=False)
+                    if predefined_values is not None:
+                        handler.set_predefined_values(predefined_values)
 
-                on_conflict = config.get(['topics', topic_name, i, 'on_conflict'], required=False, default='')
-                on_conflict = on_conflict.strip()
-                if on_conflict is not None and on_conflict != '':
-                    handler.on_conflict(on_conflict)
+                    on_conflict = config.get(['topics', topic_name, i, 'on_conflict'], required=False, default='')
+                    on_conflict = on_conflict.strip()
+                    if on_conflict is not None and on_conflict != '':
+                        handler.on_conflict(on_conflict)
 
-                handler.set_discard_geometries(config.get(['topics', topic_name, i, 'discard_geometries'],
-                            required=False,
-                            default=False))
-            else:
-                raise ValueError('unknown handler {0}'.format(handler_name))
-            if handler:
-                consumer.register_topic_handler(topic_name, handler)
+                    handler.set_discard_geometries(config.get(['topics', topic_name, i, 'discard_geometries'],
+                                required=False,
+                                default=False))
+                else:
+                    raise ValueError('unknown handler {0}'.format(handler_name))
+                if handler:
+                    consumer.register_topic_handler(topic_name, handler)
 
-    click.echo('Starting to consume')
-    consumer.consume()
+        click.echo('Starting to consume')
+        consumer.consume()
+    except Exception:
+        logging.exception('fatal error')
+        raise
