@@ -78,6 +78,9 @@ handling.  Possible values are 'do nothing' and 'do update'. This setting
 requires PostgreSQL 9.5.  For more information please refer to
 https://www.postgresql.org/docs/9.5/static/sql-insert.html .
 
+The 'discard_geometries' setting is useful when only properties and/or meta fields
+are supposed to be synced to the database. Existing geometry columns will not
+be inserted/updated. The default for this behavior is False/Off.
     '''.format(
             prog_name = ctx.info_name or '-unknown-',
             log_levels = ', '.join(commons.loglevel_names())
@@ -106,6 +109,7 @@ https://www.postgresql.org/docs/9.5/static/sql-insert.html .
                 'handler': 'postgisinsert',
                 'table_name': 'mytable',
                 'schema_name': 'public',
+                'discard_geometries': False,
                 'metafield_map': { 
                     # Stores meta-field in db columns. 
                     # The metafield names are the keys, the db columns the values.
@@ -207,6 +211,10 @@ def main(cfg_file):
                 on_conflict = on_conflict.strip()
                 if on_conflict:
                     handler.on_conflict(on_conflict)
+
+                handler.set_discard_geometries(config.get(['topics', topic_name, i, 'discard_geometries'],
+                            required=False,
+                            default=False))
             else:
                 raise ValueError('unknown handler {0}'.format(handler_name))
             if handler:

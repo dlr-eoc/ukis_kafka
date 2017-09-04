@@ -160,6 +160,9 @@ A documented example configuration file:
 # requires PostgreSQL 9.5.  For more information please refer to
 # https://www.postgresql.org/docs/9.5/static/sql-insert.html .
 # 
+# The 'discard_geometries' setting is useful when only properties and/or meta fields
+# are supposed to be synced to the database. Existing geometry columns will not
+# be inserted/updated. The default for this behavior is False/Off.
 #     
 kafka:
   client_id: my-client-id
@@ -177,7 +180,8 @@ topics:
     schema_name: public
     table_name: mytable
   topic_b:
-  - handler: postgisinsert
+  - discard_geometries: false
+    handler: postgisinsert
     metafield_map:
       filename: id
     predefined_values:

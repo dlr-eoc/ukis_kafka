@@ -191,6 +191,7 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
     writer = None
     # database schema
     _geometry_column = None
+    _discard_geometries = False
 
     # dict which maps the properties/meta fields of the features
     # to database columns.
@@ -219,6 +220,11 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
 
         When not set, properties will be auto-correlated by their names'''
         self._mapping_properties = mapping
+
+    def set_discard_geometries(self, discard_geometries):
+        '''discard incomming geometries and do not insert them into the db.
+           default: false/do not discard'''
+        self._discard_geometries = discard_geometries
 
     def set_metafield_mapping(self, mapping):
         '''map the meta fields of the incomming features to database columns.'''
@@ -263,7 +269,7 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         if self._predefined_values is not None:
             valuedict.update(self._predefined_values)
 
-        if self._geometry_column:
+        if self._geometry_column and not self._discard_geometries:
             valuedict[self._geometry_column] = data['wkb']
 
         self.writer.write(cur, valuedict)
