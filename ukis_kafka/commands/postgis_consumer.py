@@ -76,7 +76,13 @@ database columns, the values are the values.
 
 The 'on_conflict' settings is optional and supports PostgreSQLs INSERT-conflict
 handling.  Possible values are 'do nothing' and 'do update'. This setting
-requires PostgreSQL 9.5.  For more information please refer to
+requires PostgreSQL 9.5.  'do update' attempts to infer the updatable columns
+by the available unique constraints on the table. This will only work when
+there is only one unique constraint. In the case there are more than one, you
+can specify the name of the relevant unique constraint using the
+'conflict_constraint' parameter. The value for this parameter may be the name
+of the constraint, or a comma-seperated list of the columns which are part in
+this constraint. For more information please refer to
 https://www.postgresql.org/docs/9.5/static/sql-insert.html .
 
 The 'discard_geometries' setting is useful when only properties and/or meta fields
@@ -111,6 +117,8 @@ be inserted/updated. The default for this behavior is False/Off.
                 'table_name': 'mytable',
                 'schema_name': 'public',
                 'discard_geometries': False,
+                'on_conflict': 'do update',
+                'conflict_constraint': 'id, datetime',
                 'metafield_map': { 
                     # Stores meta-field in db columns. 
                     # The metafield names are the keys, the db columns the values.
@@ -212,7 +220,8 @@ def main(cfg_file):
                     on_conflict = config.get(['topics', topic_name, i, 'on_conflict'], required=False, default='')
                     on_conflict = on_conflict.strip()
                     if on_conflict is not None and on_conflict != '':
-                        handler.on_conflict(on_conflict)
+                        conflict_constraint = config.get(['topics', topic_name, i, 'conflict_constraint'], required=False, default=None) or None
+                        handler.on_conflict(on_conflict, conflict_constraint=conflict_constraint)
 
                     handler.set_discard_geometries(config.get(['topics', topic_name, i, 'discard_geometries'],
                                 required=False,

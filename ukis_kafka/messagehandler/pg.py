@@ -91,7 +91,8 @@ class PostgresqlWriter(QuoteIdentMixin):
     _columns = {}
 
     # maps unique_constraints to their columns
-    _unique_constraints = collections.defaultdict(list)
+    _unique_constraints = collections.defaultdict(set)
+    _relevant_unique_constraint_name = None
 
     def __init__(self, cur, schema_name, table_name):
         self.schema_name = schema_name or 'public'
@@ -105,14 +106,49 @@ class PostgresqlWriter(QuoteIdentMixin):
             c = {k :v for k,v in c.iteritems() if v.datatype == datatype}
         return c
 
-    def on_conflict(self, action):
+    def on_conflict(self, action, conflict_constraint=None):
+        '''conflict handling.
+           
+           action='do update' attempts to infer the updatable columns by
+           the available unique constraints on the table. This will only work
+           when there is only one unique constraint. In the case there are more
+           than one, you can specify the name of the relevant unique constraint
+           using the 'conflict_constraint' parameter. The value for this parameter
+           may be the name of the constraint, or a comma-seperated list of the
+           columns which are part in this constraint.'''
         if self.postgres_version < pkg_resources.parse_version('9.5'):
             raise Exception('conflict handling requires postgresql >= 9.5')
         if action == 'do nothing':
             self.on_conflict = 'do nothing'
         elif action == 'do update':
-            if len(self._unique_constraints) != 1:
-                raise Exception('do update is only supported when there is only one unique constraint for the table {0}.'.format(self.table_name))
+            if conflict_constraint is not None:
+                if ',' in conflict_constraint:
+                    # in case the value is a comma-seperated list, split it ad asume it is a list of 
+                    # columns
+                    con_colums = set([v.strip() for v in conflict_constraint.split(',')]) - set([''])
+
+                    for con_name_i, con_columns_i in self._unique_constraints.iteritems():
+                        if con_columns_i == con_colums:
+                            self._relevant_unique_constraint_name = con_name_i
+                            break
+
+                    if self._relevant_unique_constraint_name is None:
+                        raise Exception('Could not find a matching unique constraint on table {0} containing the columns {1}'.format(
+                                        self.table_name,
+                                        ', '.join(list(con_colums))
+                                    ))
+                else:
+                    if conflict_constraint not in self._unique_constraints:
+                        raise Exception('The table {0} has no unique constraint with the name {1}'.format(
+                                        self.table_name,
+                                        conflict_constraint
+                                    ))
+                    self._relevant_unique_constraint_name = conflict_constraint
+            else:
+                if len(self._unique_constraints) == 1:
+                    self._relevant_unique_constraint_name = self._unique_constraints.items()[0][0]
+                else:
+                    raise Exception('do update is only supported when there is only one unique constraint for the table {0}. You may need to specify the conflict_constraint parameter'.format(self.table_name))
             self.on_conflict = 'do update'
         else:
             raise Exception('unsupported on_conflict action: "{0}"'.format(action))
@@ -163,7 +199,7 @@ class PostgresqlWriter(QuoteIdentMixin):
                 self._columns[column_name] = ColumnSchema(**vc)
 
         # collect unique constraints
-        self._unique_constraints = collections.defaultdict(list)
+        self._unique_constraints = collections.defaultdict(set)
         cur.execute('''select ccu.column_name, tc.constraint_name
                             from information_schema.table_constraints tc
                             join information_schema.constraint_column_usage ccu on
@@ -175,7 +211,7 @@ class PostgresqlWriter(QuoteIdentMixin):
                             and tc.table_schema = %s
                 ''', (self.table_name, self.schema_name))
         for col_name, con_name in cur.fetchall():
-            self._unique_constraints[con_name].append(col_name)
+            self._unique_constraints[con_name].add(col_name)
 
     def write(self, cur, valuedict):
         target_columns = []
@@ -215,13 +251,13 @@ class PostgresqlWriter(QuoteIdentMixin):
         if self.on_conflict:
             conflict_parts = [sql,]
             if self.on_conflict == 'do update':
-                constraint_name, con_columns = self._unique_constraints.items()[0]
+                con_columns = self._unique_constraints[self._relevant_unique_constraint_name]
 
-                updateable_columns = list(set(target_columns) - set(con_columns))
+                updateable_columns = list(set(target_columns) - con_columns)
                 if updateable_columns != []:
                     conflict_parts.append('on conflict')
                     conflict_parts.append('on constraint')
-                    conflict_parts.append(self.quote_ident(constraint_name, cur))
+                    conflict_parts.append(self.quote_ident(self._relevant_unique_constraint_name, cur))
                     conflict_parts.append('do update set')
 
                     uc_parts = []
@@ -305,8 +341,8 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
     def analyze_schema(self, cur):
         self.writer.analyze_schema(cur)
 
-    def on_conflict(self, action):
-        self.writer.on_conflict(action)
+    def on_conflict(self, action, conflict_constraint=None):
+        self.writer.on_conflict(action, conflict_constraint=conflict_constraint)
 
     def handle_message(self, cur, data):
 

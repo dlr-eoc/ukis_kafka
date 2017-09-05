@@ -157,7 +157,13 @@ A documented example configuration file:
 # 
 # The 'on_conflict' settings is optional and supports PostgreSQLs INSERT-conflict
 # handling.  Possible values are 'do nothing' and 'do update'. This setting
-# requires PostgreSQL 9.5.  For more information please refer to
+# requires PostgreSQL 9.5.  'do update' attempts to infer the updatable columns
+# by the available unique constraints on the table. This will only work when
+# there is only one unique constraint. In the case there are more than one, you
+# can specify the name of the relevant unique constraint using the
+# 'conflict_constraint' parameter. The value for this parameter may be the name
+# of the constraint, or a comma-seperated list of the columns which are part in
+# this constraint. For more information please refer to
 # https://www.postgresql.org/docs/9.5/static/sql-insert.html .
 # 
 # The 'discard_geometries' setting is useful when only properties and/or meta fields
@@ -180,10 +186,12 @@ topics:
     schema_name: public
     table_name: mytable
   topic_b:
-  - discard_geometries: false
+  - conflict_constraint: id, datetime
+    discard_geometries: false
     handler: postgisinsert
     metafield_map:
       filename: id
+    on_conflict: do update
     predefined_values:
       my_column: some text
     property_map:
