@@ -9,6 +9,7 @@ from psycopg2.extensions import TRANSACTION_STATUS_UNKNOWN
 
 import logging
 import collections
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,11 @@ class BaseConsumer(KafkaConsumer):
 
     def register_topic_handler(self, topic, handler):
         self.topic_handlers.setdefault(topic, []).append(handler)
-        self.subscribe(self.topic_handlers.keys())
+        self._do_subscribe()
+
+    def _do_subscribe(self):
+        if self.topic_handlers:
+            self.subscribe(self.topic_handlers.keys())
 
     def consume(self):
         '''default implementation. may be overriden in subclasses'''
@@ -87,6 +92,12 @@ class PostgresqlConsumer(BaseConsumer):
                 if hasattr(handler, 'analyze_schema'):
                     handler.analyze_schema(cur)
 
+        # resubscribe peridocialy when no messages are received
+        # to avoid a state where no messages are distributed to this
+        # consumer
+        resubscription_interval_seconds = 60 * 5
+        resubscription_time = None
+
         while True:
             messages = self.poll(timeout_ms=20*1000)
 
@@ -94,6 +105,8 @@ class PostgresqlConsumer(BaseConsumer):
                 raise IOError('The connection with the database server is broken')
 
             if messages:
+                resubscription_time = time.time() + resubscription_interval_seconds # connection is alive and well
+
                 count_handled = 0
                 count_dropped = 0
                 for topicpartition, msglist in messages.items():
@@ -125,3 +138,11 @@ class PostgresqlConsumer(BaseConsumer):
 
                 self.conn.commit()
                 self.commit()
+
+            else:
+                if resubscription_time <= time.time():
+                    logger.info('No messages have benn received for {0} seconds - resubscribing to all topics'.format(
+                                resubscription_interval_seconds))
+                    self.unsubscribe()
+                    self._do_subscribe()
+                    resubscription_time = time.time() + resubscription_interval_seconds # connection is alive and well
