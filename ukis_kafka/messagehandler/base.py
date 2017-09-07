@@ -10,5 +10,8 @@ class BaseMessageHandler(object):
 
     def handle_message(self, cur, data):
         '''handle a message. this method should raise an exception on error
-           to propagate to an eventual transaction management in the consumer'''
+           to propagate to an eventual transaction management in the consumer.
+           
+           This method should return a boolean indicating if the message has been
+           processed successfuly (true, false if not)'''
         raise NotImplementedError('needs to be implemented in subclasses')

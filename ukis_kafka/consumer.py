@@ -105,7 +105,15 @@ class PostgresqlConsumer(BaseConsumer):
                         try:
                             cur.execute("savepoint current_msg")
                             for handler in handlers:
-                                handler.handle_message(cur, data)
+                                cur.execute("savepoint current_msg_handler")
+                                success = handler.handle_message(cur, data)
+                                if success == False:
+                                    cur.execute("rollback to savepoint current_msg_handler")
+                                else:
+                                    # success == None means the handler does not support
+                                    # returning the success-flag, so we need to asume
+                                    # it was a success
+                                    cur.execute("release savepoint current_msg_handler")
                             cur.execute("release savepoint current_msg")
                         except Exception, e:
                             cur.execute("rollback to savepoint current_msg")

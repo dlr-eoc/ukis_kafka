@@ -36,3 +36,4 @@ class GeoJsonFileHandler(BaseMessageHandler):
         self._fh.write(json.dumps(feature))
         if hasattr(self._fh, 'flush'):
             self._fh.flush()
+        return True

@@ -214,6 +214,9 @@ class PostgresqlWriter(QuoteIdentMixin):
             self._unique_constraints[con_name].add(col_name)
 
     def write(self, cur, valuedict):
+        '''write a row to the database.
+           
+           returns a boolean indicating if the row has been inserted (true)'''
         target_columns = []
         values = []
         placeholders = []
@@ -268,7 +271,27 @@ class PostgresqlWriter(QuoteIdentMixin):
                 conflict_parts.append('on conflict')
                 conflict_parts.append(self.on_conflict)
             sql = ' '.join(conflict_parts)
+
+        # add returning clause to be able to determinate if the row
+        # was actualy inserted
+        sql += ' returning true';
+
         cur.execute(sql, values)
+        row = cur.fetchone()
+        if not row or row[0] == False:
+            # Nothing has been inserted.
+            #
+            # Returning a failure here allows a rollback of the db
+            # transaction outside of this class. This prevents
+            # sequences attached to this table from being increased 
+            # for each failure.
+            # See the notes on 
+            # https://www.postgresql.org/docs/9.5/static/sql-insert.html#SQL-ON-CONFLICT
+            # "...  that the effects of all per-row BEFORE INSERT 
+            # triggers are reflected in excluded values, since those effects 
+            # may have contributed to the row being excluded from insertion. ..."
+            return False
+        return True
 
 
     
@@ -345,6 +368,8 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         self.writer.on_conflict(action, conflict_constraint=conflict_constraint)
 
     def handle_message(self, cur, data):
+        '''returns an boolean indicating if the message has been added
+        to the database'''
 
         # collect the values for insertion into the db
         valuedict = {}
@@ -365,4 +390,4 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
         if self._geometry_column and not self._discard_geometries:
             valuedict[self._geometry_column] = data['wkb']
 
-        self.writer.write(cur, valuedict)
+        return self.writer.write(cur, valuedict)
