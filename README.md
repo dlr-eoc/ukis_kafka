@@ -113,7 +113,14 @@ A documented example configuration file:
 # Kafka section
 # =============
 # 
-# * All parameters are mandatory.
+# The 'resubscription_interval_seconds' parameter specifies an interval in
+# seconds to resubscribe to the topics peridocialy when no messages are received.
+# The intention of this setting is to avoid a state where no messages are
+# distributed to this consumer - a behavior which has been observed in the past.
+# Omit this setting or seo tt 0 to disable.
+# 
+# All other parameters are mandatory - see the offical kafka documentation
+# on their meaning.
 # 
 # Topics section
 # ==============
@@ -174,6 +181,7 @@ kafka:
   client_id: my-client-id
   group_id: my-group-id
   kafka_server: localhost:9092
+  resubscription_interval_seconds: 600
 logging:
   file: /tmp/example.log
   level: info

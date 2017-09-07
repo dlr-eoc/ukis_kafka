@@ -68,6 +68,7 @@ class PostgresqlConsumer(BaseConsumer):
        provides transaction management between kafka and postgresql'''
 
     conn = None # psycopg2 connection
+    resubscription_interval_seconds = None
 
     def __init__(self, conn, *topics, **config):
         '''
@@ -77,6 +78,7 @@ class PostgresqlConsumer(BaseConsumer):
         # This class handles synchronizing between kafka and postgresql commits itself
         config['enable_auto_commit'] = False
 
+        self.resubscription_interval_seconds = config.pop('resubscription_interval_seconds', None)
         super(PostgresqlConsumer, self).__init__(*topics, **config)
         self.conn = conn
 
@@ -95,7 +97,6 @@ class PostgresqlConsumer(BaseConsumer):
         # resubscribe peridocialy when no messages are received
         # to avoid a state where no messages are distributed to this
         # consumer
-        resubscription_interval_seconds = 60 * 5
         resubscription_time = None
 
         while True:
@@ -105,7 +106,8 @@ class PostgresqlConsumer(BaseConsumer):
                 raise IOError('The connection with the database server is broken')
 
             if messages:
-                resubscription_time = time.time() + resubscription_interval_seconds # connection is alive and well
+                if self.resubscription_interval_seconds is not None:
+                    resubscription_time = time.time() + self.resubscription_interval_seconds # connection is alive and well
 
                 count_handled = 0
                 count_dropped = 0
@@ -140,9 +142,9 @@ class PostgresqlConsumer(BaseConsumer):
                 self.commit()
 
             else:
-                if resubscription_time <= time.time():
+                if resubscription_time is not None and resubscription_time <= time.time():
                     logger.info('No messages have benn received for {0} seconds - resubscribing to all topics'.format(
-                                resubscription_interval_seconds))
+                                self.resubscription_interval_seconds))
                     self.unsubscribe()
                     self._do_subscribe()
-                    resubscription_time = time.time() + resubscription_interval_seconds # connection is alive and well
+                    resubscription_time = time.time() + self.resubscription_interval_seconds

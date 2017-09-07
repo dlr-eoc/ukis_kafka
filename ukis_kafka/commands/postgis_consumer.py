@@ -32,7 +32,14 @@ Postgresql section
 Kafka section
 =============
 
-* All parameters are mandatory.
+The 'resubscription_interval_seconds' parameter specifies an interval in
+seconds to resubscribe to the topics peridocialy when no messages are received.
+The intention of this setting is to avoid a state where no messages are
+distributed to this consumer - a behavior which has been observed in the past.
+Omit this setting or seo tt 0 to disable.
+
+All other parameters are mandatory - see the offical kafka documentation
+on their meaning.
 
 Topics section
 ==============
@@ -103,7 +110,8 @@ be inserted/updated. The default for this behavior is False/Off.
         'kafka': {
             'client_id': 'my-client-id',
             'group_id': 'my-group-id',
-            'kafka_server': 'localhost:9092'
+            'kafka_server': 'localhost:9092',
+            'resubscription_interval_seconds': 600
         },
         'topics': {
             'topic_a': [{
@@ -185,13 +193,19 @@ def main(cfg_file):
     conn.commit()
 
     # connect to kafka
+    resubscription_interval_seconds = None
+    try:
+        resubscription_interval_seconds = int(config.get(('kafka', 'resubscription_interval_seconds'), default='0')) or None
+    except ValueError:
+        raise ValueError('The setting resubscription_interval_seconds must be an integer value')
     consumer = PostgresqlConsumer(conn,
             bootstrap_servers=config.get(('kafka', 'kafka_server'), default='localhost:9092'),
             session_timeout_ms=10000,
             # commits are controlled by this tool to sync postgresql and kafka commits
             enable_auto_commit=False,
             client_id=config.get(('kafka', 'client_id')),
-            group_id=config.get(('kafka', 'group_id'))
+            group_id=config.get(('kafka', 'group_id')),
+            resubscription_interval_seconds=resubscription_interval_seconds
         )
 
     try:
