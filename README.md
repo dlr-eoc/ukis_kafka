@@ -268,3 +268,7 @@ Support for the native OGR library bindings still needs to be implemented.
 
 * SRID support
 * OGR support
+
+# License
+
+See [LICENCE.txt](LICENCE.txt).
