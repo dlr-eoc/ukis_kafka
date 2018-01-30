@@ -49,10 +49,11 @@ class BaseConsumer(KafkaConsumer):
                         logger.debug('Handling message on topic={0}'.format(topicpartition.topic))
                         count_handled += 1
                         try:
+                            if data is None:
+                                raise Exception("message contains no data")
                             for handler in handlers:
                                 handler.handle_message(data)
                         except Exception, e:
-                            raise
                             count_dropped += 1
                             logger.error("Message dropped because of error: {0}".format(e))
 
