@@ -205,7 +205,9 @@ def main(cfg_file):
             enable_auto_commit=False,
             client_id=config.get(('kafka', 'client_id')),
             group_id=config.get(('kafka', 'group_id')),
-            resubscription_interval_seconds=resubscription_interval_seconds
+            resubscription_interval_seconds=resubscription_interval_seconds,
+            reconnect_backoff_max_ms=1000*60*60*10,
+            retry_backoff_max_ms=100
         )
 
     try:
