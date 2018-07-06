@@ -33,7 +33,7 @@ setup(
             'Shapely>=1.5',
             'msgpack-python>=0.4',
             'psycopg2>=2.6',
-            'kafka-python>=1.3',
+            'kafka-python==1.4.3',
             'python-dateutil>=2.4',
             'click>=6.7',
 			'PyYAML==3.11'
