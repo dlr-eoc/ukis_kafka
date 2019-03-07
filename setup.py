@@ -36,7 +36,7 @@ setup(
             'kafka-python==1.4.3',
             'python-dateutil>=2.4',
             'click>=6.7',
-			'PyYAML==3.11'
+			'PyYAML==4.2b1'
         ],
         packages=find_packages(exclude=['tests', 'tests.*', 'examples']),
         entry_points={
