@@ -29,7 +29,7 @@ setup(
         author='Nico Mandery',
         author_email='nico.mandery@dlr.de',
         install_requires=[
-            'Fiona>=1.7',
+            'Fiona==1.7',
             'Shapely>=1.5',
             'msgpack-python>=0.4',
             'psycopg2>=2.6',
