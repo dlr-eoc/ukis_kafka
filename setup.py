@@ -32,7 +32,7 @@ setup(
             'Fiona==1.7',
             'Shapely>=1.5',
             'msgpack-python>=0.4',
-            'psycopg2>=2.6',
+            'psycopg2-binary>=2.6',
             'kafka-python==1.4.3',
             'python-dateutil>=2.4',
             'click>=6.7',

@@ -211,7 +211,7 @@ def main(cfg_file):
         )
 
     try:
-        for topic_name in config.get(('topics',), default={}).keys():
+        for topic_name in list(config.get(('topics',), default={}).keys()):
             for i in range(len(config.get(('topics', topic_name)))):
                 handler_name = config.get(('topics', topic_name, i, 'handler'), default='postgisinsert')
                 handler = None

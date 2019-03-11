@@ -24,7 +24,7 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 def loglevel_names():
-    return _loglevels.keys()
+    return list(_loglevels.keys())
 
 def init_logging(levelname, logfile=None):
     '''initialize the logging module'''

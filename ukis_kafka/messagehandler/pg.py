@@ -103,7 +103,7 @@ class PostgresqlWriter(QuoteIdentMixin):
         c = {}
         c.update(self._columns) # make a copy
         if datatype: # return only the columns of the given datatype
-            c = {k :v for k,v in c.iteritems() if v.datatype == datatype}
+            c = {k :v for k,v in c.items() if v.datatype == datatype}
         return c
 
     def on_conflict(self, action, conflict_constraint=None):
@@ -127,7 +127,7 @@ class PostgresqlWriter(QuoteIdentMixin):
                     # columns
                     con_colums = set([v.strip() for v in conflict_constraint.split(',')]) - set([''])
 
-                    for con_name_i, con_columns_i in self._unique_constraints.iteritems():
+                    for con_name_i, con_columns_i in self._unique_constraints.items():
                         if con_columns_i == con_colums:
                             self._relevant_unique_constraint_name = con_name_i
                             break
@@ -146,7 +146,7 @@ class PostgresqlWriter(QuoteIdentMixin):
                     self._relevant_unique_constraint_name = conflict_constraint
             else:
                 if len(self._unique_constraints) == 1:
-                    self._relevant_unique_constraint_name = self._unique_constraints.items()[0][0]
+                    self._relevant_unique_constraint_name = list(self._unique_constraints.items())[0][0]
                 else:
                     raise Exception('do update is only supported when there is only one unique constraint for the table {0}. You may need to specify the conflict_constraint parameter'.format(self.table_name))
             self.on_conflict = 'do update'
@@ -186,7 +186,7 @@ class PostgresqlWriter(QuoteIdentMixin):
                         self.schema_name, self.table_name))
 
         # collect the srids of the geometry columns
-        geom_column_names = [k for k, v in self._columns.items() if v.datatype == 'geometry']
+        geom_column_names = [k for k, v in list(self._columns.items()) if v.datatype == 'geometry']
         if geom_column_names != []:
             cur.execute('''select f_geometry_column, srid from geometry_columns
                         where f_table_schema = %s
@@ -221,7 +221,7 @@ class PostgresqlWriter(QuoteIdentMixin):
         values = []
         placeholders = []
 
-        for column, value in valuedict.iteritems():
+        for column, value in valuedict.items():
             if column in self._columns:
                 column_schema = self._columns[column]
                 target_columns.append(column)
@@ -318,7 +318,7 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
 
     def __init__(self, cur, schema_name, table_name):
         self.writer = PostgresqlWriter(cur, schema_name, table_name)
-        geom_columns = self.writer.columns(datatype='geometry').keys()
+        geom_columns = list(self.writer.columns(datatype='geometry').keys())
         if len(geom_columns) == 1:
             self._geometry_column = geom_columns[0]
         if len(geom_columns) > 1:
@@ -376,10 +376,10 @@ class PostgisInsertMessageHandler(PgBaseMessageHandler):
 
         # handle meta fields first, to give properties a higher priority (possible override)
         if self._mapping_metafields is not None:
-            for mf_name, col_name in self._mapping_metafields.items():
+            for mf_name, col_name in list(self._mapping_metafields.items()):
                 valuedict[col_name] = data['meta'].get(mf_name)
 
-        for prop_name, prop_value in data['properties'].items():
+        for prop_name, prop_value in list(data['properties'].items()):
             col_name = self._column_for_property(prop_name)
             if col_name:
                 valuedict[col_name] = prop_value

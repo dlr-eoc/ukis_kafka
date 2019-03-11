@@ -42,7 +42,7 @@ filename = os.path.join(
 
 with fiona.open(filename, 'r') as src:
     for f in src:
-        print("Sending {0}".format(f['properties']['datetime']))
+        print(("Sending {0}".format(f['properties']['datetime'])))
         producer.send('sdkarma-live-wf', f)
 
         time.sleep(random.randint(0, 1)) # delay

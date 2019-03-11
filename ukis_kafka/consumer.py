@@ -2,7 +2,7 @@
 
 from kafka import KafkaConsumer
 
-from wireformat import basic_from_wireformat
+from .wireformat import basic_from_wireformat
 from .wireformat import pack
 
 from psycopg2.extensions import TRANSACTION_STATUS_UNKNOWN
@@ -32,7 +32,7 @@ class BaseConsumer(KafkaConsumer):
 
     def _do_subscribe(self):
         if self.topic_handlers:
-            self.subscribe(self.topic_handlers.keys())
+            self.subscribe(list(self.topic_handlers.keys()))
 
     def consume(self):
         '''default implementation. may be overriden in subclasses'''
@@ -42,7 +42,7 @@ class BaseConsumer(KafkaConsumer):
             if messages:
                 count_handled = 0
                 count_dropped = 0
-                for topicpartition, msglist in messages.items():
+                for topicpartition, msglist in list(messages.items()):
                     handlers = self.topic_handlers[topicpartition.topic]
                     for msg in msglist:
                         data = msg.value
@@ -53,7 +53,7 @@ class BaseConsumer(KafkaConsumer):
                                 raise Exception("message contains no data")
                             for handler in handlers:
                                 handler.handle_message(data)
-                        except Exception, e:
+                        except Exception as e:
                             count_dropped += 1
                             logger.error("Message dropped because of error: {0}".format(e))
 
@@ -90,7 +90,7 @@ class PostgresqlConsumer(BaseConsumer):
         cur = self.conn.cursor()
 
         # collect the schema information in all handlers
-        for handlers in self.topic_handlers.values():
+        for handlers in list(self.topic_handlers.values()):
             for handler in handlers:
                 if hasattr(handler, 'analyze_schema'):
                     handler.analyze_schema(cur)
@@ -112,7 +112,7 @@ class PostgresqlConsumer(BaseConsumer):
 
                 count_handled = 0
                 count_dropped = 0
-                for topicpartition, msglist in messages.items():
+                for topicpartition, msglist in list(messages.items()):
                     handlers = self.topic_handlers[topicpartition.topic]
                     for msg in msglist:
                         data = msg.value
@@ -131,7 +131,7 @@ class PostgresqlConsumer(BaseConsumer):
                                     # it was a success
                                     cur.execute("release savepoint current_msg_handler")
                             cur.execute("release savepoint current_msg")
-                        except Exception, e:
+                        except Exception as e:
                             cur.execute("rollback to savepoint current_msg")
                             count_dropped += 1
                             logger.error("Message dropped because of failure to insert: {0}, properties: {1}".format(e, data['properties']))
