@@ -52,7 +52,8 @@ def main(filename, kafka_server, topic, loglevel, meta_field):
             bootstrap_servers=kafka_server,
             key_serializer=pack.pack,
             value_serializer=value_serializer,
-            compression_type='gzip'
+            compression_type='gzip',
+            max_request_size= 5500000
     )
 
     try:
